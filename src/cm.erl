@@ -1,5 +1,3 @@
-
-
 % http://www.tcpipguide.com/free/t_DHCPGeneralOperationandClientFiniteStateMachine.htm
 % http://www.erlang.org/doc/reference_manual/records.html
 % http://www.erlang.org/doc/design_principles/fsm.html
@@ -10,7 +8,10 @@
 -behaviour(gen_fsm).
 
 %% public api
--export([stop/1, start_link/3, poweron/1, poweroff/1, reset/1, receive_packet/2]).
+-export([stop/1, start_link/2, start_link/3, 
+         poweron/1, poweroff/1, reset/1, 
+         connect/2, disconnect/1,
+         receive_packet/2]).
 
 %% gen_fsm callbacks
 -export([init/1, code_change/4, handle_state/2, handle_event/3, handle_info/3, 
@@ -37,11 +38,14 @@
 %% @spec start_link() -> {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
+start_link(N, MAC) ->
+    gen_fsm:start_link({local, N}, cm, [undefined, N, MAC], [{debug,[trace]}]).
 start_link(CMTS, N, MAC) ->
     gen_fsm:start_link({local, N}, cm, [CMTS, N, MAC], [{debug,[trace]}]).
 
+
 %% send a stop this will end up in "handle_event"
-stop(N)  -> gen_fsm:send_all_state_event(N, stopit).
+stop(N)  -> gen_fsm:send_all_state_event(N, {stop}).
 
 %%% External events (human)
 
@@ -56,6 +60,14 @@ poweroff(N) ->
 %% reset a modem
 reset(N) ->
     gen_fsm:send_all_state_event(N, {reset}).
+
+%% Connect to a (new) cmts
+connect(CmId, CmtsId) ->
+    gen_fsm:send_all_state_event(CmId, {connect,CmtsId}).
+
+%% Connect to a (new) cmts
+disconnect(CmId) ->
+    gen_fsm:send_all_state_event(CmId, {disconnect}).
 
 %%% External events ( network )
 receive_packet(N, PACKET) ->
@@ -101,11 +113,15 @@ dhcp_selecting({receive_packet, #dhcp{yiaddr=ClientIP}}, StateData) ->
     {next_state, dhcp_requesting, NewStateData};
 dhcp_selecting(timeout, StateData) ->
     dhcp_init(StateData).
-
-dhcp_requesting({receive_packet, #dhcp{yiaddr=_ClientIP}}, StateData) ->
-    
-    {next_state, dhcp_requesting, StateData}.
-
+dhcp_requesting({receive_packet, _D = #dhcp{yiaddr=ClientIP}}, StateData) ->
+    {next_state, dhcp_requesting, StateData#state{ip=ClientIP}}.
+%    case dhcp_util:optsearch(?DHO_DHCP_LEASE_TIME, D) of
+%        {value, {Option, Value}} ->
+%            {next_state, dhcp_requesting, StateData#state{ip=ClientIP,leasetime=Value}};
+%        false ->
+%            error_log:log_info("Lease reply without lease time... going to request new lease"),
+%            dhcp_init(StateData)
+%    end;
 dhcp_initreboot({receive_packet, #dhcp{yiaddr=_ClientIP}}, StateData) ->
     {next_state, dhcp_requesting, StateData}.
 
@@ -123,8 +139,11 @@ dhcp_rebinding({receive_packet, #dhcp{yiaddr=_ClientIP}}, StateData) ->
 
 % implicit dhcp_init state
 dhcp_init(StateData) ->
-    send_discover(StateData#state.cmts, StateData),
-    {next_state, dhcp_selecting, StateData, 2000}.
+    case StateData#state.cmts of
+        undefined -> {next_state, poweroff, StateData};
+        _ -> send_discover(StateData#state.cmts, StateData),
+             {next_state, dhcp_selecting, StateData, 5000}
+    end.
 
 
 %%--------------------------------------------------------------------
@@ -148,8 +167,20 @@ handle_event({reset}, _StateName, StateData) ->
     dhcp_init(StateData);
 handle_event({poweron}, _StateName, StateData) ->
     dhcp_init(StateData);
-handle_event({stopit}, _StateName, StateData) ->
-    {stop, i_shall_stop, StateData}.   %% tell it to stop
+% re-connecting is tricky, and not entirely correct here
+% see Rebinding... later...
+handle_event({connect, CmtsId}, _StateName, StateData) ->
+    if CmtsId =:= StateData#state.cmts ->
+            StateData2 = StateData#state{cmts=CmtsId},
+            dhcp_init(StateData2);
+       true ->
+            dhcp_init(StateData)
+    end;
+handle_event({disconnect}, _StateName, StateData) ->
+    cmts:disconnect(StateData#state.cmts, StateData#state.name),
+    {next_state, poweroff, StateData#state{cmts=undefined}};
+handle_event({stop}, _StateName, StateData) ->
+    {stop, normal, StateData}.   %% tell it to stop
 
 %%--------------------------------------------------------------------
 %% @private
@@ -199,6 +230,7 @@ handle_info(_Info, StateName, State) ->
 %% @end
 %%--------------------------------------------------------------------
 terminate(_Reason, _StateName, _State) ->
+    error_logger:info_msg("Terminating ~p  ~p~n", [_Reason, _StateName]),
     ok.
 
 %%--------------------------------------------------------------------
@@ -227,7 +259,7 @@ send_discover(CMTS, StateData) ->
       chaddr = StateData#state.mac
      },
     io:format("Send discover ~p ~p~n", [CMTS, Discover]),
-    cmts:send_packet(CMTS, Discover).
+    cmts:send_packet(CMTS, Discover, StateData#state.name).
 
 
 

@@ -10,5 +10,5 @@ run() ->
     {CmtsId, CmId}.
 
 stop({CmtsId, CmId}) ->
-    cm:stop(CmId),
-    cmts:stop(CmtsId).
+    cmts:stop(CmtsId),
+    cm:stop(CmId).

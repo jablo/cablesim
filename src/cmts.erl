@@ -20,7 +20,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/2, send_packet/2, stop/1]).
+-export([start_link/2, send_packet/3, stop/1, reboot/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, 
@@ -54,13 +54,20 @@ start_link(ServerId, LogFile) ->
 			  [ServerId, LogFile], [{debug,[trace]}]).
 
 %% Cable modems call this to have a dhcp packet relayed to the dhcp server
-send_packet(CMTS, Packet) ->
-    gen_server:cast(CMTS, Packet).
+send_packet(CMTS, Packet, CmId) ->
+    gen_server:cast(CMTS, {Packet, CmId}).
 
-%% send a stop this will end up in "handle_event"
-stop(N)  -> 
-    gen_fsm:send_all_state_event(N, stopit).
-    
+%% Cable modem call this to disconnect from the cmts
+disconnect(Cmts, CmId) ->
+    gen_server:cast(Cmts, {disconnect, CmId}).
+
+%% reset cmts (ie, reset all connected cable modems)
+reboot(Cmts) ->
+    gen_server:cast(Cmts, {reboot}).
+
+%% 
+stop(CMTS) ->
+    gen_server:cast(CMTS, stop).
 
 %%====================================================================
 %% gen_server callbacks
@@ -81,7 +88,7 @@ init([ServerId, LogFile]) ->
 	    error_logger:info_msg("Starting DHCP releay..."),
 	    {ok, #state{socket = Socket,
 			server_id = ServerId,
-                        cms=doubledict:new()}};
+                        cms=dict:new()}};
 	{error, Reason} ->
 	    error_logger:error_msg("Cannot open udp port ~w",
 				   [?DHCP_RELAY_PORT]),
@@ -111,19 +118,25 @@ handle_call(_Request, _From, State) ->
 %% This will handle packets sent from cable modems to forward to the 
 %% dhcp server
 %%--------------------------------------------------------------------
-handle_cast(DhcpPacket, State) ->
+handle_cast(stop, State) ->
+    {stop, normal, State};
+handle_cast({reboot}, State) ->
+    error_logger:info_msg("Rebooting all cable modems not implemented"),
+    {noreply, State};
+handle_cast({disconnect, CmId}, State) ->
+    error_logger:info_msg("Disconnecting ~p~n", [CmId]),
+    {noreply, State#state{cms=dict:erase(CmId, State#state.cms)};
+handle_cast({DhcpPacket = #dhcp{}, CmId}, State) ->
     Socket = State#state.socket,
     {IP, Port} = get_dest(DhcpPacket),
     D = DhcpPacket#dhcp{giaddr=?GI_ADDRESS},
     Mac = DhcpPacket#dhcp.chaddr,
-    error_logger:info_msg("Relaying DHCP from ~p on ~s to ~s ~s ~s",
-			  [Mac,
-                           fmt_ip(IP), fmt_clientid(D),
-			   fmt_hostname(D), fmt_gateway(D)]),
-    CableModems2 = doubledict:store(Mac, State#state.server_id, State#state.cms),
+    error_logger:info_msg("Relaying DHCP from ~p ~s", [CmId, fmt_clientid(D)]),
+    CableModems2 = dict:store(Mac, CmId, State#state.cms),
     State2 = State#state{cms=CableModems2},
     gen_udp:send(Socket, IP, Port, dhcp_lib:encode(D)),
-    {noreply, State2}.
+    {noreply, State2}.    
+
 
 
 %%--------------------------------------------------------------------
@@ -135,14 +148,13 @@ handle_cast(DhcpPacket, State) ->
 %%--------------------------------------------------------------------
 handle_info({udp, _Socket, _IP, _Port, Packet}, State) ->
     DHCP = dhcp_lib:decode(Packet),
-    error_logger:info_msg("DHVP server replied: ~p~n", [DHCP]),
+    error_logger:info_msg("DHCP server replied: ~p~n", [DHCP]),
     case optsearch(?DHO_DHCP_MESSAGE_TYPE, DHCP) of
 	{value, MsgType} ->
 	    handle_dhcp(MsgType, DHCP, State);
 	false ->
-	    ok
-    end,
-    {noreply, State};
+            handle_dhcp(0, DHCP, State)
+    end;
 handle_info(_Info, State) ->
     {noreply, State}.
 
@@ -174,12 +186,12 @@ code_change(_OldVsn, State, _Extra) ->
 %%%-------------------------------------------------------------------
 handle_dhcp(_DHCPPACKET_TYPE, D, State) ->
     Mac = D#dhcp.chaddr,
-    CMID = doubledict:fetch_bykey(Mac, State#state.cms),            
-    error_logger:info_msg("DHCPDOFFER from ~s ~s ~s relay to ~p",
+    CMID = dict:fetch(Mac, State#state.cms),            
+    error_logger:info_msg("DHCP packet to ~s ~s ~s relay to ~p",
 			  [fmt_clientid(D), fmt_hostname(D), fmt_gateway(D),
                           CMID]),
     cm:receive_packet(CMID, D),
-    State.
+    {noreply, State}.
 
 %%% Behaviour is described in RFC2131 sec. 4.1
 %%% NO: look in RFC about DHCP relays
