@@ -1,3 +1,7 @@
+%%
+%% Copied from Erlang DHCP server implementation at
+%% 
+
 -ifndef(_DHCP).
 -define(_DHCP, true).
 

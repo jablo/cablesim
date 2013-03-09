@@ -1,3 +1,5 @@
+
+
 % http://www.tcpipguide.com/free/t_DHCPGeneralOperationandClientFiniteStateMachine.htm
 % http://www.erlang.org/doc/reference_manual/records.html
 % http://www.erlang.org/doc/design_principles/fsm.html
@@ -96,11 +98,12 @@ poweroff({reset}, StateData) ->
 dhcp_selecting({receive_packet, #dhcp{yiaddr=ClientIP}}, StateData) ->
     NewStateData=StateData#state{ip=ClientIP},
     io:format("Receive offer myip ~p~n", [NewStateData]),
-    {next_state, dhcp_requesting, StateData};
+    {next_state, dhcp_requesting, NewStateData};
 dhcp_selecting(timeout, StateData) ->
     dhcp_init(StateData).
 
 dhcp_requesting({receive_packet, #dhcp{yiaddr=_ClientIP}}, StateData) ->
+    
     {next_state, dhcp_requesting, StateData}.
 
 dhcp_initreboot({receive_packet, #dhcp{yiaddr=_ClientIP}}, StateData) ->
@@ -139,12 +142,14 @@ dhcp_init(StateData) ->
 %%--------------------------------------------------------------------
 handle_event({poweroff}, _StateName, StateData) ->
     {next_state, poweroff, StateData};
+handle_event({reset}, poweroff, StateData) ->
+    {next_state, poweroff, StateData};
 handle_event({reset}, _StateName, StateData) ->
     dhcp_init(StateData);
 handle_event({poweron}, _StateName, StateData) ->
     dhcp_init(StateData);
-handle_event({stopit}, _StateName, _StateData) ->
-    {stop, i_shall_stop, []}.   %% tell it to stop
+handle_event({stopit}, _StateName, StateData) ->
+    {stop, i_shall_stop, StateData}.   %% tell it to stop
 
 %%--------------------------------------------------------------------
 %% @private

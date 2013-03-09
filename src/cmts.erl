@@ -1,12 +1,19 @@
 %%%-------------------------------------------------------------------
 %%% File    : cmts 
 %%% Author  : Jacob Lorensen
-%%% Author  : Ruslan Babayev <ruslan@babayev.com>
 %%% Description : DHCP relay agent simulator
 %%%
 %%% Created : 08 March 2013 by Jacob Lorensen <jalor@yousee.dk> 
-%%% based on Google code
+%%% Based on code for DHCP server:
 %%% Created : 20 Sep 2006 by Ruslan Babayev <ruslan@babayev.com>
+%%%
+%%% Links
+%%% http://tools.ietf.org/html/rfc3046
+%%% RFC 1542. 
+%%% http://www.ietf.org/internet-drafts/draft-ietf-dhc-implementation-02.txt
+%%%
+%%% For non-root uses:
+%%% http://askubuntu.com/questions/8250/weird-issue-with-iptables-redirection
 %%%-------------------------------------------------------------------
 -module(cmts).
 
@@ -19,12 +26,17 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, 
          terminate/2, code_change/3]).
 
+%% 
+-import(dhcp_util, [optsearch/2, get_client_id/1, fmt_clientid/1, fmt_gateway/1, fmt_ip/1,
+        fmt_hostname/1]).
+
 -include("dhcp.hrl").
 -include("simul.hrl").
 
 -define(SERVER, ?MODULE).
 -define(DHCP_SERVER_PORT, 67).
--define(DHCP_CLIENT_PORT, 10068).
+-define(DHCP_CLIENT_PORT, 68).
+-define(DHCP_RELAY_PORT, 67).
 -define(DHCP_SERVER_IP, {192,168,56,105}).
 -define(GI_ADDRESS, {192,168,56,102}).
 
@@ -64,7 +76,7 @@ stop(N)  ->
 init([ServerId, LogFile]) ->
     error_logger:logfile({open, LogFile}),
     Options = get_sockopt(),
-    case gen_udp:open(?DHCP_CLIENT_PORT, Options) of
+    case gen_udp:open(?DHCP_RELAY_PORT, Options) of
 	{ok, Socket} ->
 	    error_logger:info_msg("Starting DHCP releay..."),
 	    {ok, #state{socket = Socket,
@@ -72,7 +84,7 @@ init([ServerId, LogFile]) ->
                         cms=doubledict:new()}};
 	{error, Reason} ->
 	    error_logger:error_msg("Cannot open udp port ~w",
-				   [?DHCP_CLIENT_PORT]),
+				   [?DHCP_RELAY_PORT]),
 	    {stop, Reason}
     end.
 
@@ -103,11 +115,15 @@ handle_cast(DhcpPacket, State) ->
     Socket = State#state.socket,
     {IP, Port} = get_dest(DhcpPacket),
     D = DhcpPacket#dhcp{giaddr=?GI_ADDRESS},
-    error_logger:info_msg("Relaying DHCP on ~s to ~s ~s ~s",
-			  [fmt_ip(IP), fmt_clientid(D),
+    Mac = DhcpPacket#dhcp.chaddr,
+    error_logger:info_msg("Relaying DHCP from ~p on ~s to ~s ~s ~s",
+			  [Mac,
+                           fmt_ip(IP), fmt_clientid(D),
 			   fmt_hostname(D), fmt_gateway(D)]),
+    CableModems2 = doubledict:store(Mac, State#state.server_id, State#state.cms),
+    State2 = State#state{cms=CableModems2},
     gen_udp:send(Socket, IP, Port, dhcp_lib:encode(D)),
-    {noreply, State}.
+    {noreply, State2}.
 
 
 %%--------------------------------------------------------------------
@@ -118,8 +134,8 @@ handle_cast(DhcpPacket, State) ->
 %% Received UDP packets from the DHCP server to forward to cable modems
 %%--------------------------------------------------------------------
 handle_info({udp, _Socket, _IP, _Port, Packet}, State) ->
-    io:format("handle_indfo udp  ~p~n", [Packet]),
     DHCP = dhcp_lib:decode(Packet),
+    error_logger:info_msg("DHVP server replied: ~p~n", [DHCP]),
     case optsearch(?DHO_DHCP_MESSAGE_TYPE, DHCP) of
 	{value, MsgType} ->
 	    handle_dhcp(MsgType, DHCP, State);
@@ -156,73 +172,19 @@ code_change(_OldVsn, State, _Extra) ->
 %%%-------------------------------------------------------------------
 %%% The DHCP message handler - forward to Cable modem client
 %%%-------------------------------------------------------------------
-handle_dhcp(?DHCPOFFER, D, State) ->
-    error_logger:info_msg("DHCPDOFFER from ~s ~s ~s",
-			  [fmt_clientid(D), fmt_hostname(D), fmt_gateway(D)]),
-    State;
-
-handle_dhcp(?DHCPACK, D, State) ->
-    error_logger:info_msg("DHCPDACK from ~s ~s ~s",
-			  [fmt_clientid(D), fmt_hostname(D), fmt_gateway(D)]),
-    State;
-
-handle_dhcp(?DHCPNAK, D, State) ->
-    error_logger:info_msg("DHCPNAK from ~s ~s ~s",
-			  [fmt_clientid(D), fmt_hostname(D), fmt_gateway(D)]),
-    State;
-
-handle_dhcp(MsgType, _D, _State) ->
-    error_logger:error_msg("Invalid DHCP message type ~p", [MsgType]).
+handle_dhcp(_DHCPPACKET_TYPE, D, State) ->
+    Mac = D#dhcp.chaddr,
+    CMID = doubledict:fetch_bykey(Mac, State#state.cms),            
+    error_logger:info_msg("DHCPDOFFER from ~s ~s ~s relay to ~p",
+			  [fmt_clientid(D), fmt_hostname(D), fmt_gateway(D),
+                          CMID]),
+    cm:receive_packet(CMID, D),
+    State.
 
 %%% Behaviour is described in RFC2131 sec. 4.1
 %%% NO: look in RFC about DHCP relays
 get_dest(D) when is_record(D, dhcp) ->
     {?DHCP_SERVER_IP, ?DHCP_SERVER_PORT}.
-
-%is_broadcast(D) when is_record(D, dhcp) ->
-%    (D#dhcp.flags bsr 15) == 1.
-
-optsearch(Option, D) when is_record(D, dhcp) ->
-    case lists:keysearch(Option, 1, D#dhcp.options) of
-	{value, {Option, Value}} ->
-	    {value, Value};
-	false ->
-	    false
-    end.
-    
-get_client_id(D) when is_record(D, dhcp) ->
-    case optsearch(?DHO_DHCP_CLIENT_IDENTIFIER, D) of
-        {value, ClientId} ->
-	    ClientId;
-	false ->
-	    D#dhcp.chaddr
-    end.
-
-fmt_clientid(D) when is_record(D, dhcp) ->
-    fmt_clientid(get_client_id(D));
-fmt_clientid([_T, E1, E2, E3, E4, E5, E6]) ->
-    fmt_clientid({E1, E2, E3, E4, E5, E6});
-fmt_clientid({E1, E2, E3, E4, E5, E6}) ->
-    lists:flatten(
-      io_lib:format("~2.16.0b:~2.16.0b:~2.16.0b:~2.16.0b:~2.16.0b:~2.16.0b",
-	     [E1, E2, E3, E4, E5, E6])).
-
-fmt_gateway(D) when is_record(D, dhcp) ->
-    case D#dhcp.giaddr of
-	{0, 0, 0, 0} -> [];
-	IP           -> lists:flatten(io_lib:format("via ~s", [fmt_ip(IP)]))
-    end.
-
-fmt_hostname(D) when is_record(D, dhcp) ->
-    case optsearch(?DHO_HOST_NAME, D) of
-        {value, Hostname} ->
-            lists:flatten(io_lib:format("(~s)", [Hostname]));
-	false ->
-	    []
-    end.
-
-fmt_ip({A1, A2, A3, A4}) ->
-    io_lib:format("~w.~w.~w.~w", [A1, A2, A3, A4]).
 
 get_sockopt() ->
     [binary, {broadcast, true}].
