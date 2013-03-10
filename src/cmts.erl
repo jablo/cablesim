@@ -20,7 +20,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/2, send_packet/3, stop/1, reboot/1]).
+-export([start_link/2, send_packet/3, stop/1, reboot/1, disconnect/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, 
@@ -51,7 +51,7 @@
 %%--------------------------------------------------------------------
 start_link(ServerId, LogFile) ->
     gen_server:start_link({local, ?SERVER}, ?MODULE,
-			  [ServerId, LogFile], [{debug,[trace]}]).
+			  [ServerId, LogFile], [{debug,[trace]}]). %{debug,[trace]}
 
 %% Cable modems call this to have a dhcp packet relayed to the dhcp server
 send_packet(CMTS, Packet, CmId) ->
@@ -125,13 +125,13 @@ handle_cast({reboot}, State) ->
     {noreply, State};
 handle_cast({disconnect, CmId}, State) ->
     error_logger:info_msg("Disconnecting ~p~n", [CmId]),
-    {noreply, State#state{cms=dict:erase(CmId, State#state.cms)};
+    {noreply, State#state{cms=dict:erase(CmId, State#state.cms)}};
 handle_cast({DhcpPacket = #dhcp{}, CmId}, State) ->
     Socket = State#state.socket,
     {IP, Port} = get_dest(DhcpPacket),
     D = DhcpPacket#dhcp{giaddr=?GI_ADDRESS},
     Mac = DhcpPacket#dhcp.chaddr,
-    error_logger:info_msg("Relaying DHCP from ~p ~s", [CmId, fmt_clientid(D)]),
+    %error_logger:info_msg("Relaying DHCP from ~p ~s~n", [CmId, fmt_clientid(D)]),
     CableModems2 = dict:store(Mac, CmId, State#state.cms),
     State2 = State#state{cms=CableModems2},
     gen_udp:send(Socket, IP, Port, dhcp_lib:encode(D)),
@@ -148,7 +148,7 @@ handle_cast({DhcpPacket = #dhcp{}, CmId}, State) ->
 %%--------------------------------------------------------------------
 handle_info({udp, _Socket, _IP, _Port, Packet}, State) ->
     DHCP = dhcp_lib:decode(Packet),
-    error_logger:info_msg("DHCP server replied: ~p~n", [DHCP]),
+    %error_logger:info_msg("DHCP server replied: ~p~n", [DHCP]),
     case optsearch(?DHO_DHCP_MESSAGE_TYPE, DHCP) of
 	{value, MsgType} ->
 	    handle_dhcp(MsgType, DHCP, State);
@@ -200,14 +200,3 @@ get_dest(D) when is_record(D, dhcp) ->
 
 get_sockopt() ->
     [binary, {broadcast, true}].
-
-
-
-
-
-
-
-
-
-
-

@@ -18,8 +18,8 @@
          handle_sync_event/4, terminate/3]).
 
 %% gen_fsm states
--export([poweroff/2, dhcp_selecting/2, dhcp_requesting/2, dhcp_initreboot/2, dhcp_rebooting/2, dhcp_bound/2,
-         dhcp_renewing/2, dhcp_rebinding/2]).
+-export([poweroff/2, dhcp_selecting/2, dhcp_requesting/2, dhcp_rebooting/2, dhcp_bound/2,
+        dhcp_renewing/2]).
 
 -include("simul.hrl").
 -include("dhcp.hrl").
@@ -27,7 +27,9 @@
 %%
 %% state data
 %%
--record(state, {ip="", leasetime=0, cmts, name, mac=""}).
+-record(state, {ip="", leasetime=0, bindtime=0, cmts, name, mac=""}).
+-define(STATE_TIMEOUT, 5000).
+-define(RENEW_TIMEOUT, 30000).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -109,42 +111,66 @@ poweroff({reset}, StateData) ->
 
 dhcp_selecting({receive_packet, #dhcp{yiaddr=ClientIP}}, StateData) ->
     NewStateData=StateData#state{ip=ClientIP},
-    io:format("Receive offer myip ~p~n", [NewStateData]),
-    {next_state, dhcp_requesting, NewStateData};
+    %error_logger:info_msg("Receive offer myip ~p~n", [NewStateData]),
+    % first offer is fine, ask for it
+    send_request(StateData#state.cmts, NewStateData),
+    {next_state, dhcp_requesting, NewStateData, ?STATE_TIMEOUT};
 dhcp_selecting(timeout, StateData) ->
     dhcp_init(StateData).
-dhcp_requesting({receive_packet, _D = #dhcp{yiaddr=ClientIP}}, StateData) ->
-    {next_state, dhcp_requesting, StateData#state{ip=ClientIP}}.
-%    case dhcp_util:optsearch(?DHO_DHCP_LEASE_TIME, D) of
-%        {value, {Option, Value}} ->
-%            {next_state, dhcp_requesting, StateData#state{ip=ClientIP,leasetime=Value}};
-%        false ->
-%            error_log:log_info("Lease reply without lease time... going to request new lease"),
-%            dhcp_init(StateData)
-%    end;
-dhcp_initreboot({receive_packet, #dhcp{yiaddr=_ClientIP}}, StateData) ->
-    {next_state, dhcp_requesting, StateData}.
 
-dhcp_rebooting({receive_packet, #dhcp{yiaddr=_ClientIP}}, StateData) ->
-    {next_state, dhcp_requesting, StateData}.
+dhcp_requesting({receive_packet, D}, StateData) ->
+    handle_dhcp_ack(D, StateData);
+dhcp_requesting(timeout, StateData) ->
+    dhcp_init(StateData).
 
-dhcp_bound({receive_packet, #dhcp{yiaddr=_ClientIP}}, StateData) ->
-    {next_state, dhcp_requesting, StateData}.
+% implicit dhcp_initreboot state
+%dhcp_initreboot(StateData) ->
+%    undefined.
 
-dhcp_renewing({receive_packet, #dhcp{yiaddr=_ClientIP}}, StateData) ->
-    {next_state, dhcp_requesting, StateData}.
+dhcp_rebooting(_, _) ->
+    undefined.
 
-dhcp_rebinding({receive_packet, #dhcp{yiaddr=_ClientIP}}, StateData) ->
-    {next_state, dhcp_requesting, StateData}.
+dhcp_bound(timeout, StateData) ->
+    send_renew(StateData#state.cmts, StateData),
+    {next_state, dhcp_renewing, StateData, 15000}.
+
+dhcp_renewing({receive_packet, D}, StateData)  ->
+    handle_dhcp_ack(D, StateData);
+dhcp_renewing(timeout, StateData) ->
+    {_,Now,_} = erlang:now(),
+    if Now - StateData#state.bindtime > StateData#state.leasetime ->
+            dhcp_init(StateData);
+       true ->
+            send_renew(StateData#state.cmts, StateData),
+            {next_state, dhcp_renewing, StateData, ?RENEW_TIMEOUT}
+    end.
+
 
 % implicit dhcp_init state
 dhcp_init(StateData) ->
     case StateData#state.cmts of
         undefined -> {next_state, poweroff, StateData};
         _ -> send_discover(StateData#state.cmts, StateData),
-             {next_state, dhcp_selecting, StateData, 5000}
+             {next_state, dhcp_selecting, StateData, ?STATE_TIMEOUT}
     end.
 
+handle_dhcp_ack(D = #dhcp{yiaddr=ClientIP}, StateData) ->
+    case dhcp_util:optsearch(?DHO_DHCP_MESSAGE_TYPE, D) of
+	{value, ?DHCPNAK} ->
+            {next_state, dhcp_init, StateData#state{ip=undefined,leasetime=undefined}};
+        {value, ?DHCPACK} ->
+            case dhcp_util:optsearch(?DHO_DHCP_LEASE_TIME, D) of
+                {value, Value} ->
+                    %error_logger:info_msg("Lease reply with lease time ~p~n", [Value]),
+                    {_,Bindtime,_} = erlang:now(),
+                    NewStateData = StateData#state{ip=ClientIP,leasetime=Value,bindtime=Bindtime},
+                    {next_state, dhcp_bound, NewStateData, Value*1000/2};
+                false ->
+                    %error_logger:info_msg("Lease reply without lease time (bootp)~n"),
+                    {next_state, dhcp_bound, StateData#state{ip=ClientIP,leasetime=undefined}}
+            end
+    end.
+    
 
 %%--------------------------------------------------------------------
 %% @private
@@ -255,11 +281,32 @@ code_change(_OldVsn, StateName, State, _Extra) ->
 
 send_discover(CMTS, StateData) ->    
     Discover = #dhcp{
-      op = ?DHCPDISCOVER,
-      chaddr = StateData#state.mac
+      op = ?BOOTREQUEST,
+      chaddr = StateData#state.mac,
+      options=[{?DHO_DHCP_MESSAGE_TYPE, ?DHCPDISCOVER}]
      },
-    io:format("Send discover ~p ~p~n", [CMTS, Discover]),
+    %error_logger:info_msg("Send dhcp_discover ~p ~p~n", [CMTS, Discover]),
     cmts:send_packet(CMTS, Discover, StateData#state.name).
 
+send_request(CMTS, StateData) ->    
+    io:format("StateData.ip: ~p~n", [StateData#state.ip]),
+    Request = #dhcp{
+      op = ?BOOTREQUEST,
+      chaddr = StateData#state.mac,
+      options=[{?DHO_DHCP_MESSAGE_TYPE, ?DHCPREQUEST},
+              {?DHO_DHCP_REQUESTED_ADDRESS, StateData#state.ip}]
+     },
+    %error_logger:info_msg("Send dhcp_request ~p ~p~n", [CMTS, Request]),
+    cmts:send_packet(CMTS, Request, StateData#state.name).
 
+send_renew(CMTS, StateData) ->    
+    io:format("StateData.ip: ~p~n", [StateData#state.ip]),
+    Request = #dhcp{
+      op = ?BOOTREQUEST,
+      chaddr = StateData#state.mac,
+      ciaddr = StateData#state.ip,
+      options=[{?DHO_DHCP_MESSAGE_TYPE, ?DHCPREQUEST}]
+     },
+    %error_logger:info_msg("Send dhcp_request ~p ~p~n", [CMTS, Request]),
+    cmts:send_packet(CMTS, Request, StateData#state.name).
 
