@@ -51,7 +51,7 @@
 %%--------------------------------------------------------------------
 start_link(ServerId, LogFile) ->
     gen_server:start_link({local, ?SERVER}, ?MODULE,
-			  [ServerId, LogFile], [{debug,[trace]}]). %{debug,[trace]}
+			  [ServerId, LogFile], []). %{debug,[trace]}
 
 %% Cable modems call this to have a dhcp packet relayed to the dhcp server
 send_packet(CMTS, Packet, CmId) ->

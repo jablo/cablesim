@@ -10,7 +10,7 @@
 %% public api
 -export([stop/1, start_link/2, start_link/3, 
          poweron/1, poweroff/1, reset/1, 
-         connect/2, disconnect/1,
+         connect_cmts/2, disconnect_cmts/1,
          receive_packet/2]).
 
 %% gen_fsm callbacks
@@ -20,6 +20,7 @@
 %% gen_fsm states
 -export([poweroff/2, dhcp_selecting/2, dhcp_requesting/2, dhcp_rebooting/2, dhcp_bound/2,
         dhcp_renewing/2]).
+% implicit states dhcp_init/1, dhcp_initreboot/1
 
 -include("simul.hrl").
 -include("dhcp.hrl").
@@ -41,9 +42,9 @@
 %% @end
 %%--------------------------------------------------------------------
 start_link(N, MAC) ->
-    gen_fsm:start_link({local, N}, cm, [undefined, N, MAC], [{debug,[trace]}]).
+    gen_fsm:start_link({local, N}, cm, [undefined, N, MAC], []). %{debug,[trace]}
 start_link(CMTS, N, MAC) ->
-    gen_fsm:start_link({local, N}, cm, [CMTS, N, MAC], [{debug,[trace]}]).
+    gen_fsm:start_link({local, N}, cm, [CMTS, N, MAC], []). %{debug,[trace]}
 
 
 %% send a stop this will end up in "handle_event"
@@ -64,11 +65,11 @@ reset(N) ->
     gen_fsm:send_all_state_event(N, {reset}).
 
 %% Connect to a (new) cmts
-connect(CmId, CmtsId) ->
+connect_cmts(CmId, CmtsId) ->
     gen_fsm:send_all_state_event(CmId, {connect,CmtsId}).
 
 %% Connect to a (new) cmts
-disconnect(CmId) ->
+disconnect_cmts(CmId) ->
     gen_fsm:send_all_state_event(CmId, {disconnect}).
 
 %%% External events ( network )
@@ -148,7 +149,6 @@ dhcp_renewing(timeout, StateData) ->
             dhcp_init(StateData)
     end.
 
-
 % implicit dhcp_init state
 dhcp_init(StateData) ->
     case StateData#state.cmts of
@@ -208,8 +208,14 @@ handle_event({poweron}, _StateName, StateData) ->
 % re-connecting is tricky, and not entirely correct here
 % see Rebinding... later...
 handle_event({connect, CmtsId}, _StateName, StateData) ->
-    if CmtsId =:= StateData#state.cmts ->
+    if StateData#state.cmts =:= undefined ->
             StateData2 = StateData#state{cmts=CmtsId},
+            cmts:connect(StateData2#state.cmts, StateData2#state.name),
+            dhcp_init(StateData2);
+        CmtsId =:= StateData#state.cmts ->
+            cmts:disconnect(StateData#state.cmts, StateData#state.name),
+            StateData2 = StateData#state{cmts=CmtsId},
+            cmts:connect(StateData2#state.cmts, StateData2#state.name),
             dhcp_init(StateData2);
        true ->
             dhcp_init(StateData)
