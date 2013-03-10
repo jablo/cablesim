@@ -117,7 +117,9 @@ init([ServerId, Mac, Cmts]) ->
     {ok, #state{server_id=ServerId, cmts=Cmts, cm_dhcp=DHCP_Ref, linkstate=offline}};
 init([ServerId, Mac]) ->
     DHCP_Ref = mk_unique_atom(ServerId, dhcp),
-    cm:start_link(DHCP_Ref, Mac, fun (P) -> cm:send_packet(ServerId, P) end),
+    dhcp_client:start_link(DHCP_Ref, Mac, 
+                           fun (P) -> cm:send_packet(ServerId, P) end
+                           fun (B) -> cm:linkstate(ServerId, B) end),
     {ok, #state{server_id=ServerId, cmts=undefined, cm_dhcp=DHCP_Ref, linkstate=offline}}.
 
 mk_unique_atom(Prefix, Postfix) ->
