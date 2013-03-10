@@ -128,7 +128,7 @@ dhcp_initreboot(StateData) ->
     send_request(StateData#state.cmts, StateData),
     {next_state, dhcp_rebooting, StateData, ?STATE_TIMEOUT}.
 
-dhcp_rebooting(D = #dhcp{}, StateData) ->
+dhcp_rebooting({receive_packet, D}, StateData) ->
     handle_dhcp_ack(D, StateData);
 dhcp_rebooting(timeout, StateData) ->
     dhcp_init(StateData#state{ip=undefined,leasetime=undefined}).
