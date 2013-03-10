@@ -9,7 +9,7 @@
 -behaviour(gen_fsm).
 
 %% public api
--export([stop/1, start_link/3,
+-export([stop/1, start_link/3, start_link/4,
          poweron/1, poweroff/1, reset/1, 
          receive_packet/2]).
 
@@ -28,7 +28,7 @@
 %%
 %% state data
 %%
--record(state, {ip="", leasetime=0, bindtime=0, send_fun, name, mac=""}).
+-record(state, {ip="", leasetime=0, bindtime=0, send_fun, bound_fun, name, mac=""}).
 -define(RETRANSMIT_TIMEOUT, 5000).
 -define(RENEW_TIMEOUT, 30000).
 
@@ -42,7 +42,10 @@
 %% @end
 %%--------------------------------------------------------------------
 start_link(N, MAC, SendFun) ->
-    gen_fsm:start_link({local, N}, dhcp_client, [N, MAC, SendFun], [{debug,[trace]}]). %
+    gen_fsm:start_link({local, N}, dhcp_client, 
+                       [N, MAC, SendFun, fun (_) -> ok end], [{debug,[trace]}]). %
+start_link(N, MAC, SendFun, OnlineFun) ->
+    gen_fsm:start_link({local, N}, dhcp_client, [N, MAC, SendFun, OnlineFun], [{debug,[trace]}]). %
 
 %% send a stop this will end up in "handle_event"
 stop(N)  -> gen_fsm:send_all_state_event(N, {stop}).
@@ -80,8 +83,8 @@ receive_packet(N, PACKET) ->
 %% {stop, StopReason}
 %% @end
 %%--------------------------------------------------------------------
-init([N, MAC, SendFun]) ->
-    {ok, poweroff, #state{send_fun=SendFun, name=N, mac=MAC}}.
+init([N, MAC, SendFun, OnlineFun]) ->
+    {ok, poweroff, #state{send_fun=SendFun, bound_fun=OnlineFun, name=N, mac=MAC}}.
 
 %%
 %% Shoudld be called on every state change...
@@ -111,7 +114,8 @@ dhcp_requesting(timeout, StateData) ->
     dhcp_init(StateData).
 
 % implicit dhcp_initreboot state
-dhcp_initreboot(StateData) ->
+dhcp_initreboot(StateData = #state{bound_fun=BoundFun}) ->
+    BoundFun(offline),
     send_request(StateData),
     {next_state, dhcp_rebooting, StateData, ?RETRANSMIT_TIMEOUT}.
 
@@ -136,7 +140,8 @@ dhcp_renewing(timeout, StateData) ->
     end.
 
 % implicit dhcp_init state
-dhcp_init(StateData) ->
+dhcp_init(StateData = #state{bound_fun=BoundFun}) ->
+    BoundFun(offline),
     send_discover(StateData),
     {next_state, dhcp_selecting, StateData, ?RETRANSMIT_TIMEOUT}.
 
@@ -147,13 +152,14 @@ handle_dhcp_ack(D = #dhcp{yiaddr=ClientIP}, StateData) ->
         {value, ?DHCPACK} ->
             case dhcp_util:optsearch(?DHO_DHCP_LEASE_TIME, D) of
                 {value, Value} ->
-                    %error_logger:info_msg("Lease reply with lease time ~p~n", [Value]),
                     {_,Bindtime,_} = erlang:now(),
                     NewStateData = StateData#state{ip=ClientIP,leasetime=Value,bindtime=Bindtime},
-                    T1 = t1(StateData),
+                    T1 = t1(NewStateData),
+                    (NewStateData#state.bound_fun)(online),
                     {next_state, dhcp_bound, NewStateData, T1*1000};
                 false ->
                     error_logger:info_msg("State dhcp_bound timeout indefinite (bootp)~n"),
+                    (StateData#state.bound_fun)(online),
                     {next_state, dhcp_bound, StateData#state{ip=ClientIP,leasetime=undefined}}
             end
     end.
@@ -178,7 +184,8 @@ t2(StateData) ->
 %% {stop, Reason, NewState}
 %% @end
 %%--------------------------------------------------------------------
-handle_event({poweroff}, _StateName, StateData) ->
+handle_event({poweroff}, _StateName, StateData = #state{bound_fun=BoundFun}) ->
+    BoundFun(offline),
     {next_state, poweroff, StateData};
 handle_event({reset}, poweroff, StateData) ->
     {next_state, poweroff, StateData};

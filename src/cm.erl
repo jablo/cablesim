@@ -26,7 +26,7 @@
 
 %% public api (from cm)
 -export([stop/1, start_link/3, start_link/2, 
-         send_packet/2, relay_packet/2, receive_packet/2,
+         send_packet/2, relay_packet/2, receive_packet/2, linkstate/2,
          poweron/1, poweroff/1, reset/1, 
          connect_cmts/2, disconnect_cmts/1]).
 
@@ -54,6 +54,11 @@ start_link(Cmts, ServerId, Mac) ->
 
 stop(CmId) ->
     gen_server:cast(CmId, {stop}).
+
+linkstate(CmId, online) ->
+    gen_server:cast(CmId, {linkstate, online});
+linkstate(CmId, offline) ->
+    gen_server:cast(CmId, {linkstate, offline}).
 
 %% Cable modem native components modems call this to have a network packet 
 %% relayed to the cmts (and further onwards) to the dhcp server
@@ -104,17 +109,19 @@ disconnect_cmts(CmId) ->
 %% Description: Initiates the server
 %%--------------------------------------------------------------------
 init([ServerId, Mac, Cmts]) ->
-    DHCP_Ref = mk_unique_atom(ServerId, cm_dhcp),
+    DHCP_Ref = mk_unique_atom(ServerId, dhcp),
     error_logger:info_msg("DHCP Client ref: ~p~n", [DHCP_Ref]),
-    dhcp_client:start_link(DHCP_Ref, Mac, fun (P) -> cm:send_packet(ServerId, P) end),
+    dhcp_client:start_link(DHCP_Ref, Mac, 
+                           fun (P) -> cm:send_packet(ServerId, P) end,
+                           fun (B) -> cm:linkstate(ServerId, B) end),
     {ok, #state{server_id=ServerId, cmts=Cmts, cm_dhcp=DHCP_Ref, linkstate=offline}};
 init([ServerId, Mac]) ->
-    DHCP_Ref = mk_unique_atom(ServerId, cm_dhcp),
+    DHCP_Ref = mk_unique_atom(ServerId, dhcp),
     cm:start_link(DHCP_Ref, Mac, fun (P) -> cm:send_packet(ServerId, P) end),
     {ok, #state{server_id=ServerId, cmts=undefined, cm_dhcp=DHCP_Ref, linkstate=offline}}.
 
 mk_unique_atom(Prefix, Postfix) ->
-    list_to_atom(atom_to_list(Prefix) ++ atom_to_list(Postfix)).
+    list_to_atom(atom_to_list(Prefix) ++ "_" ++ atom_to_list(Postfix)).
 
 %%--------------------------------------------------------------------
 %% Function: %% handle_call(Request, From, State) -> {reply, Reply, State} |
@@ -146,7 +153,7 @@ handle_cast({stop}, StateData) ->
     {stop, normal, StateData};   %% tell it to stop
 handle_cast({poweroff}, StateData = #state{cm_dhcp=DHCP}) ->
     dhcp_client:poweroff(DHCP),
-    {noreply, StateData#state{linkstate=offline}};
+    {noreply, StateData};
 handle_cast({reset}, StateData = #state{cm_dhcp=DHCP}) ->
     dhcp_client:reset(DHCP),
     {noreply, StateData};
@@ -174,6 +181,9 @@ handle_cast({disconnect}, StateData) ->
     cmts:disconnect(StateData#state.cmts, StateData#state.server_id),
     StateData2 = StateData#state{cmts=undefined, linkstate=offline},
     {noreply, StateData2};
+% handles DHCP client status feedback
+handle_cast({linkstate, L}, StateData) ->
+    {noreply, StateData#state{linkstate=L}};
 handle_cast({send_packet, _P}, StateData = #state{cmts=undefined, cm_dhcp=DHCP}) ->
     dhcp_client:poweroff(DHCP),
     {noreply, StateData};
