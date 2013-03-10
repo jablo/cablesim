@@ -62,3 +62,11 @@ Ideas boiling up:
 
 /Jacob Lorensen
 <jalor@yousee.dk>
+
+Various links:
+- http://www.tcpipguide.com/free/t_DHCPGeneralOperationandClientFiniteStateMachine.htm
+- http://www.erlang.org/doc/reference_manual/records.html
+- http://www.erlang.org/doc/design_principles/fsm.html
+- http://www.erlang.org/doc/reference_manual/modules.html
+- https://github.com/yrashk/gen_fsm2/blob/master/example/src/example_fsm.erl
+- http://www.erlang.org/documentation/doc-4.8.2/doc/design_principles/fsm.html

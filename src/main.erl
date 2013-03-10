@@ -1,5 +1,13 @@
 -module(main).
--export([run/0, stop/1]).
+-export([r/0, run/0, stop/1]).
+
+r() ->
+    CmtsId = cmts,
+    LogFile = "/tmp/log.log",
+    cmts:start_link(CmtsId, LogFile),
+    CmId1 = cm1,
+    cm:start_link(CmtsId, CmId1, {00,00,00,00,00,01}),    
+    cm:poweron(CmId1).
 
 run() ->
     CmtsId = cmts,
