@@ -83,7 +83,7 @@ init([ServerId, LogFile]) ->
     Options = get_sockopt(),
     case gen_udp:open(?DHCP_RELAY_PORT, Options) of
 	{ok, Socket} ->
-	    error_logger:info_msg("Starting DHCP releay..."),
+	    error_logger:info_msg("Starting CMTS ~p~n", [ServerId]),
 	    {ok, #state{socket = Socket,
 			server_id = ServerId,
                         cms=dict:new()}};

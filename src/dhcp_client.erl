@@ -84,6 +84,7 @@ receive_packet(N, PACKET) ->
 %% @end
 %%--------------------------------------------------------------------
 init([N, MAC, SendFun, OnlineFun]) ->
+    error_logger:info_msg("Starting DHCP Client ~p~n", [N]),
     {ok, poweroff, #state{send_fun=SendFun, bound_fun=OnlineFun, name=N, mac=MAC}}.
 
 %%

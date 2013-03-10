@@ -35,7 +35,7 @@
 
 -include("dhcp.hrl").
 
--record(state, {server_id, cmts=undefined, cm_dhcp, cpe_dhcp, linkstate=offline}).
+-record(state, {server_id, cmts=undefined, cm_dhcp, linkstate=offline}).
 % add state: cm_tftp, cm_tod, cm_mta, cm_cpe for other embedded devices
 
 %%====================================================================
@@ -109,6 +109,7 @@ disconnect_cmts(CmId) ->
 %% Description: Initiates the server
 %%--------------------------------------------------------------------
 init([ServerId, Mac, Cmts]) ->
+    error_logger:info_msg("Starting Cable Modem ~p~n", [ServerId]),
     DHCP_Ref = mk_unique_atom(ServerId, dhcp),
     dhcp_client:start_link(DHCP_Ref, Mac, 
                            fun (P) -> cm:send_packet(ServerId, P) end,
