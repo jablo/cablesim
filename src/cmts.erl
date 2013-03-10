@@ -117,9 +117,10 @@ handle_call(_Request, _From, State) ->
 %% dhcp server
 %%--------------------------------------------------------------------
 handle_cast(stop, State) ->
+    dict:map (fun (_,V) -> cm:stop(V) end, State#state.cms),
     {stop, normal, State};
 handle_cast({reboot}, State) ->
-    error_logger:info_msg("Rebooting all cable modems not implemented"),
+    dict:map (fun (_,V) -> cm:reset(V) end, State#state.cms),
     {noreply, State};
 handle_cast({disconnect, CmId}, State) ->
     error_logger:info_msg("Disconnecting ~p~n", [CmId]),

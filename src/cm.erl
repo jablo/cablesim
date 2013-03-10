@@ -35,7 +35,7 @@
 
 -include("dhcp.hrl").
 
--record(state, {server_id, cmts=undefined, cm_dhcp, linkstate=offline}).
+-record(state, {server_id, cmts=undefined, cm_dhcp, cpe_dhcp, linkstate=offline}).
 % add state: cm_tftp, cm_tod, cm_mta, cm_cpe for other embedded devices
 
 %%====================================================================
@@ -65,7 +65,7 @@ linkstate(CmId, offline) ->
 send_packet(CmId, Packet) ->
     gen_server:cast(CmId, {send_packet, Packet}).
 
-%% Devices bgehind the cable modem (mta, cpe) call this to have a network packet 
+%% Devices behind the cable modem (mta, cpe) call this to have a network packet 
 %% relayed to the cmts (and further onwards) to the dhcp server
 relay_packet(CmId, Packet) ->
     gen_server:cast(CmId, {relay_packet, Packet}).
@@ -110,7 +110,6 @@ disconnect_cmts(CmId) ->
 %%--------------------------------------------------------------------
 init([ServerId, Mac, Cmts]) ->
     DHCP_Ref = mk_unique_atom(ServerId, dhcp),
-    error_logger:info_msg("DHCP Client ref: ~p~n", [DHCP_Ref]),
     dhcp_client:start_link(DHCP_Ref, Mac, 
                            fun (P) -> cm:send_packet(ServerId, P) end,
                            fun (B) -> cm:linkstate(ServerId, B) end),
@@ -118,7 +117,7 @@ init([ServerId, Mac, Cmts]) ->
 init([ServerId, Mac]) ->
     DHCP_Ref = mk_unique_atom(ServerId, dhcp),
     dhcp_client:start_link(DHCP_Ref, Mac, 
-                           fun (P) -> cm:send_packet(ServerId, P) end
+                           fun (P) -> cm:send_packet(ServerId, P) end,
                            fun (B) -> cm:linkstate(ServerId, B) end),
     {ok, #state{server_id=ServerId, cmts=undefined, cm_dhcp=DHCP_Ref, linkstate=offline}}.
 
@@ -212,7 +211,8 @@ handle_cast({receive_packet, P = #dhcp{}}, StateData = #state{cm_dhcp=Dhcp}) ->
 %% cleaning up. When it returns, the gen_server terminates with Reason.
 %% The return value is ignored.
 %%--------------------------------------------------------------------
-terminate(_Reason, _State) ->
+terminate(_Reason, _State = #state{cm_dhcp=Dhcp}) ->
+    dhcp_client:stop(Dhcp),
     ok.
 
 %%--------------------------------------------------------------------
