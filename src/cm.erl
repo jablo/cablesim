@@ -124,11 +124,14 @@ dhcp_requesting(timeout, StateData) ->
     dhcp_init(StateData).
 
 % implicit dhcp_initreboot state
-%dhcp_initreboot(StateData) ->
-%    undefined.
+dhcp_initreboot(StateData) ->
+    send_request(StateData#state.cmts, StateData),
+    {next_state, dhcp_rebooting, StateData, ?STATE_TIMEOUT}.
 
-dhcp_rebooting(_, _) ->
-    undefined.
+dhcp_rebooting(D = #dhcp{}, StateData) ->
+    handle_dhcp_ack(D, StateData);
+dhcp_rebooting(timeout, StateData) ->
+    dhcp_init(StateData#state{ip=undefined,leasetime=undefined}).
 
 dhcp_bound(timeout, StateData) ->
     send_renew(StateData#state.cmts, StateData),
@@ -137,12 +140,12 @@ dhcp_bound(timeout, StateData) ->
 dhcp_renewing({receive_packet, D}, StateData)  ->
     handle_dhcp_ack(D, StateData);
 dhcp_renewing(timeout, StateData) ->
-    {_,Now,_} = erlang:now(),
-    if Now - StateData#state.bindtime > StateData#state.leasetime ->
-            dhcp_init(StateData);
-       true ->
+    T2 = t2(StateData),
+    if T2 > 0 ->
             send_renew(StateData#state.cmts, StateData),
-            {next_state, dhcp_renewing, StateData, ?RENEW_TIMEOUT}
+            {next_state, dhcp_renewing, StateData, ?RENEW_TIMEOUT};
+       true ->
+            dhcp_init(StateData)
     end.
 
 
@@ -164,13 +167,20 @@ handle_dhcp_ack(D = #dhcp{yiaddr=ClientIP}, StateData) ->
                     %error_logger:info_msg("Lease reply with lease time ~p~n", [Value]),
                     {_,Bindtime,_} = erlang:now(),
                     NewStateData = StateData#state{ip=ClientIP,leasetime=Value,bindtime=Bindtime},
-                    {next_state, dhcp_bound, NewStateData, Value*1000/2};
+                    T1 = t1(StateData),
+                    {next_state, dhcp_bound, NewStateData, T1*1000};
                 false ->
-                    %error_logger:info_msg("Lease reply without lease time (bootp)~n"),
+                    error_logger:info_msg("State dhcp_bound timeout indefinite (bootp)~n"),
                     {next_state, dhcp_bound, StateData#state{ip=ClientIP,leasetime=undefined}}
             end
     end.
-    
+
+t1(StateData) ->    
+    StateData#state.leasetime div 2.
+
+t2(StateData) ->
+    {_,Now,_} = erlang:now(),
+    Now - StateData#state.bindtime - StateData#state.leasetime.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -189,6 +199,8 @@ handle_event({poweroff}, _StateName, StateData) ->
     {next_state, poweroff, StateData};
 handle_event({reset}, poweroff, StateData) ->
     {next_state, poweroff, StateData};
+handle_event({reset}, dhcp_bound, StateData) ->
+    dhcp_initreboot(StateData);
 handle_event({reset}, _StateName, StateData) ->
     dhcp_init(StateData);
 handle_event({poweron}, _StateName, StateData) ->
