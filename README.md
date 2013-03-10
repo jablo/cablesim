@@ -45,8 +45,8 @@ Needless to say, a lot of features are missing. In somewhat prioritized order my
 - Combine the DHCP, TFTP and ToD modules into a much more complete cable modem simulator.
 - Make it possible to build a multifunction cable modem device by combining
    - Cable modem
-   - DHCP, TFTP, ToD simulator
-   - DHCP simulator for an embedded MTA device
+   - DHCP + TFTP + ToD simulator
+   - DHCP + TFTP simulator for an embedded MTA or SIP device
    - DHCP simulator for an embedded CPE device (router)
 
 Ideas boiling up:
