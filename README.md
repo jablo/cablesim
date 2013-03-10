@@ -21,7 +21,11 @@ it, MTA/SIP and CPE) simulation software. I want it immediately scalable. Runnin
 something on the order of 10 CMTSes each with 5000 cable modems, 5000 mtas and
 5000 CPEs attached is my goal.
 
-This is a very draft first version. Currently completed is:
+This is the reason I chose Erlang - with each component being a process (or a combination
+of processes) with several small state machines / servers, it should be possible to
+scale up indefinitely using Erlang's distributed mechanisms while still maintaining
+a central point of control / configuration. But that remains to be seen, this is after
+all my first Erlang program. It is a very draft first version. Currently completed is:
 
 - A simple CMTS simulation that implements DHCP relay.
 - A simple cable modem simulation that implelements DHCP client protocol.
