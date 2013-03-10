@@ -1,9 +1,10 @@
-% http://www.tcpipguide.com/free/t_DHCPGeneralOperationandClientFiniteStateMachine.htm
-% http://www.erlang.org/doc/reference_manual/records.html
-% http://www.erlang.org/doc/design_principles/fsm.html
-% http://www.erlang.org/doc/reference_manual/modules.html
-% https://github.com/yrashk/gen_fsm2/blob/master/example/src/example_fsm.erl
-% http://www.erlang.org/documentation/doc-4.8.2/doc/design_principles/fsm.html
+%%%-------------------------------------------------------------------
+%%% File    : cm
+%%% Author  : Jacob Lorensen
+%%% Description : Cable Modem dhcp client simulator
+%%%
+%%% Created : 08 March 2013 by Jacob Lorensen <jalor@yousee.dk> 
+%%%-------------------------------------------------------------------
 -module(cm).
 -behaviour(gen_fsm).
 
@@ -307,7 +308,6 @@ send_discover(CMTS, StateData) ->
     cmts:send_packet(CMTS, Discover, StateData#state.name).
 
 send_request(CMTS, StateData) ->    
-    io:format("StateData.ip: ~p~n", [StateData#state.ip]),
     Request = #dhcp{
       op = ?BOOTREQUEST,
       chaddr = StateData#state.mac,
@@ -318,7 +318,6 @@ send_request(CMTS, StateData) ->
     cmts:send_packet(CMTS, Request, StateData#state.name).
 
 send_renew(CMTS, StateData) ->    
-    io:format("StateData.ip: ~p~n", [StateData#state.ip]),
     Request = #dhcp{
       op = ?BOOTREQUEST,
       chaddr = StateData#state.mac,
@@ -328,3 +327,9 @@ send_renew(CMTS, StateData) ->
     %error_logger:info_msg("Send dhcp_request ~p ~p~n", [CMTS, Request]),
     cmts:send_packet(CMTS, Request, StateData#state.name).
 
+% http://www.tcpipguide.com/free/t_DHCPGeneralOperationandClientFiniteStateMachine.htm
+% http://www.erlang.org/doc/reference_manual/records.html
+% http://www.erlang.org/doc/design_principles/fsm.html
+% http://www.erlang.org/doc/reference_manual/modules.html
+% https://github.com/yrashk/gen_fsm2/blob/master/example/src/example_fsm.erl
+% http://www.erlang.org/documentation/doc-4.8.2/doc/design_principles/fsm.html

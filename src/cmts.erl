@@ -4,8 +4,6 @@
 %%% Description : DHCP relay agent simulator
 %%%
 %%% Created : 08 March 2013 by Jacob Lorensen <jalor@yousee.dk> 
-%%% Based on code for DHCP server:
-%%% Created : 20 Sep 2006 by Ruslan Babayev <ruslan@babayev.com>
 %%%
 %%% Links
 %%% http://tools.ietf.org/html/rfc3046
@@ -19,7 +17,7 @@
 
 -behaviour(gen_server).
 
-%% API
+%% Public API
 -export([start_link/2, send_packet/3, stop/1, reboot/1, disconnect/2]).
 
 %% gen_server callbacks
@@ -184,17 +182,11 @@ code_change(_OldVsn, State, _Extra) ->
 %%%-------------------------------------------------------------------
 %%% The DHCP message handler - forward to Cable modem client
 %%%-------------------------------------------------------------------
-handle_dhcp(_DHCPPACKET_TYPE, D, State) ->
-    Mac = D#dhcp.chaddr,
+handle_dhcp(_DHCPPACKET_TYPE, D = #dhcp{chaddr=Mac}, State) ->
     CMID = dict:fetch(Mac, State#state.cms),            
-    error_logger:info_msg("DHCP packet to ~s ~s ~s relay to ~p",
-			  [fmt_clientid(D), fmt_hostname(D), fmt_gateway(D),
-                          CMID]),
     cm:receive_packet(CMID, D),
     {noreply, State}.
 
-%%% Behaviour is described in RFC2131 sec. 4.1
-%%% NO: look in RFC about DHCP relays
 get_dest(D) when is_record(D, dhcp) ->
     {?DHCP_SERVER_IP, ?DHCP_SERVER_PORT}.
 
