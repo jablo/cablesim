@@ -53,7 +53,7 @@ stop(N)  -> gen_fsm:send_all_state_event(N, {stop}).
 %%% External events (human interaction)
 
 poweron(N) ->
-    gen_fsm:send_event(N, {reset}).
+    gen_fsm:send_all_state_event(N, {poweron}).
 
 poweroff(N) ->
     gen_fsm:send_all_state_event(N, {poweroff}).
@@ -97,7 +97,7 @@ handle_state(StateName, State) ->
 %%%
 %%%% STATES
 %%%
-poweroff({reset}, StateData) ->
+poweroff({poweron}, StateData) ->
     dhcp_init(StateData).
 
 dhcp_selecting({receive_packet, #dhcp{yiaddr=ClientIP}}, StateData) ->
@@ -188,13 +188,15 @@ t2(StateData) ->
 handle_event({poweroff}, _StateName, StateData = #state{bound_fun=BoundFun}) ->
     BoundFun(offline),
     {next_state, poweroff, StateData};
+handle_event({poweron}, poweroff, StateData) ->
+    dhcp_init(StateData);
+handle_event({poweron}, StateName, StateData) ->
+    {next_state, StateName, StateData};
 handle_event({reset}, poweroff, StateData) ->
     {next_state, poweroff, StateData};
 handle_event({reset}, dhcp_bound, StateData) ->
     dhcp_initreboot(StateData);
 handle_event({reset}, _StateName, StateData) ->
-    dhcp_init(StateData);
-handle_event({poweron}, _StateName, StateData) ->
     dhcp_init(StateData);
 handle_event({stop}, _StateName, StateData) ->
     {stop, normal, StateData}.   %% tell it to stop
