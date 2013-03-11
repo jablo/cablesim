@@ -32,13 +32,6 @@ all my first Erlang program. It is a very draft first version. Currently complet
 
 Needless to say, a lot of features are missing. In somewhat prioritized order my list is:
 
-- Modularizing the code components:
-- Change the cable modem simulation to a DHCP client simulation, capable at least of sending
-  "online" and "offline" messages to its hosting module.
-- Write a new cable modem simulation module that will be a packet forwarding device between
-  a number of state machine moduels and the CMTS.
-- Model the cable modem simulation by combining the cable modem packet forwarding with a
-  DHCP state machine-
 - Add device "signatures" (ie. option 43 etc.) so we can mimic the DHCP client packets sent
   by the different manufacturers' devices.
 - Write TFTP and ToD state machine modules, each with a "fail" and "complete" call-outs
