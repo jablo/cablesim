@@ -32,8 +32,10 @@ all my first Erlang program. It is a very draft first version. Currently complet
 
 Needless to say, a lot of features are missing. In somewhat prioritized order my list is:
 
+[2013-03-12 DONE]
 - Add device "signatures" (ie. option 43 etc.) so we can mimic the DHCP client packets sent
   by the different manufacturers' devices.
+
 - Write TFTP and ToD state machine modules, each with a "fail" and "complete" call-outs
 - Combine the DHCP, TFTP and ToD modules into a much more complete cable modem simulator.
 - Make it possible to build a multifunction cable modem device by combining
