@@ -5,10 +5,6 @@
 %%%
 %%% Created : 08 March 2013 by Jacob Lorensen <jalor@yousee.dk> 
 %%%
-%%% Links
-%%% http://tools.ietf.org/html/rfc3046
-%%% RFC 1542. 
-%%% http://www.ietf.org/internet-drafts/draft-ietf-dhc-implementation-02.txt
 %%%
 %%% For non-root uses:
 %%% http://askubuntu.com/questions/8250/weird-issue-with-iptables-redirection
@@ -18,7 +14,7 @@
 -behaviour(gen_server).
 
 %% Public API
--export([start_link/2, send_packet/3, stop/1, reboot/1, disconnect/2]).
+-export([start_link/3, send_packet/3, stop/1, reboot/1, disconnect/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, 
@@ -31,25 +27,25 @@
 -include("dhcp.hrl").
 -include("simul.hrl").
 
--define(SERVER, ?MODULE).
 -define(DHCP_SERVER_PORT, 67).
 -define(DHCP_CLIENT_PORT, 68).
 -define(DHCP_RELAY_PORT, 67).
 -define(DHCP_SERVER_IP, {192,168,56,105}).
--define(GI_ADDRESS, {192,168,56,102}).
 
--record(state, {socket, server_id, cms}).
+-record(state, {socket, cmts, dhcp_serverip, giaddress, cms}).
 
 %%====================================================================
 %% API
 %%====================================================================
 %%--------------------------------------------------------------------
-%% Function: start_link() -> {ok,Pid} | ignore | {error,Error}
-%% Description: Starts the server
+%% Function: start_link(ServerId, GiAddress, LogFile) -> 
+%%                                 {ok,Pid} | ignore | {error,Error}
+%% Description: Starts an instance of the Cmts server
 %%--------------------------------------------------------------------
-start_link(ServerId, LogFile) ->
-    gen_server:start_link({local, ?SERVER}, ?MODULE,
-			  [ServerId, LogFile], []). %{debug,[trace]}
+start_link(Cmts, GiAddress, DhcpServerIP) ->
+    gen_server:start_link({local, Cmts}, ?MODULE,
+			  [Cmts, GiAddress, DhcpServerIP], 
+                          [{debug,[trace]}]). %{debug,[trace]}
 
 %% Cable modems call this to have a dhcp packet relayed to the dhcp server
 send_packet(CMTS, Packet, CmId) ->
@@ -78,14 +74,15 @@ stop(CMTS) ->
 %%                         {stop, Reason}
 %% Description: Initiates the server
 %%--------------------------------------------------------------------
-init([ServerId, LogFile]) ->
-    error_logger:logfile({open, LogFile}),
+init([ServerId, GiAddress, DhcpServerIP]) ->
     Options = get_sockopt(),
     case gen_udp:open(?DHCP_RELAY_PORT, Options) of
 	{ok, Socket} ->
 	    error_logger:info_msg("Starting CMTS ~p~n", [ServerId]),
 	    {ok, #state{socket = Socket,
-			server_id = ServerId,
+			cmts = ServerId,
+                        dhcp_serverip = DhcpServerIP,
+                        giaddress = GiAddress,
                         cms=dict:new()}};
 	{error, Reason} ->
 	    error_logger:error_msg("Cannot open udp port ~w",
@@ -119,16 +116,19 @@ handle_call(_Request, _From, State) ->
 handle_cast(stop, State) ->
     dict:map (fun (_,V) -> cm:stop(V) end, State#state.cms),
     {stop, normal, State};
+% External event: reboot a cmts - reboots all attached cable modems
 handle_cast({reboot}, State) ->
     dict:map (fun (_,V) -> cm:reset(V) end, State#state.cms),
     {noreply, State};
+% External event: disconnect a cable modem
 handle_cast({disconnect, CmId}, State) ->
     error_logger:info_msg("Disconnecting ~p~n", [CmId]),
     {noreply, State#state{cms=dict:erase(CmId, State#state.cms)}};
+% External event: forward a dhcp packet from an attached cable modem
 handle_cast({DhcpPacket = #dhcp{}, CmId}, State) ->
     Socket = State#state.socket,
     {IP, Port} = get_dest(DhcpPacket),
-    D = DhcpPacket#dhcp{giaddr=?GI_ADDRESS},
+    D = DhcpPacket#dhcp{giaddr=State#state.giaddress},
     Mac = DhcpPacket#dhcp.chaddr,
     %error_logger:info_msg("Relaying DHCP from ~p ~s~n", [CmId, fmt_clientid(D)]),
     CableModems2 = dict:store(Mac, CmId, State#state.cms),
