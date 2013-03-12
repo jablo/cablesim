@@ -4,6 +4,7 @@
 r() ->
     CmtsId = cmts,
     LogFile = "/tmp/log.log",
+    error_logger:logfile({open, LogFile}),
     cmts:start_link(CmtsId, LogFile),
     CmId1 = cm1,
     cm:start_link(CmtsId, CmId1, {00,00,00,00,00,01}).
