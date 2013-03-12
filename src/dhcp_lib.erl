@@ -4,10 +4,13 @@
 %%% Description : 
 %%%
 %%% Created : 17 Apr 2006 by Ruslan Babayev <ruslan@babayev.com>
+%%% Modified: March 2013 by Jacob Lorensen <jacoblorensen@gmail.com>
+%%% Updated to handle option 43 sub options correctly
 %%%-------------------------------------------------------------------
 -module(dhcp_lib).
 
 %% API
+-export([binary_to_options/1, binary_to_options/2, binary_to_options/3, options_to_binary/1]).
 -export([decode/1, encode/1]).
 -import(lists, [keymember/3, keysearch/3, keyreplace/4]).
 -include("dhcp.hrl").
@@ -25,7 +28,7 @@ decode(<<Op, Htype, Hlen, Hops,  Xid:32, Secs:16, Flags:16,
 	Options/binary>>) ->
     OptsList = case Options of
 		   <<99, 130, 83, 99, Opts/binary>> ->
-		       binary_to_options(Opts);
+		       binary_to_options(Opts, fun (X) -> type(X) end);
 		   _ -> %% return empty list if the MAGIC is not there
 		       []
 	       end,
@@ -96,12 +99,16 @@ pad(X, Size) when is_binary(X) ->
     <<X/binary, 0:Plen/integer-unit:8>>.
 
 binary_to_options(Binary) ->
-    binary_to_options(Binary, []).
+    binary_to_options(Binary, fun (T) -> type(T) end).
+binary_to_options(Binary, Type) ->
+    binary_to_options(Binary, Type, []).
 
-binary_to_options(<<?DHO_END, _/binary>>, Acc) ->
+binary_to_options(<<>>, _, Acc) ->
     Acc;
-binary_to_options(<<Tag, Rest/binary>>, Acc) ->
-    Value = case type(Tag) of
+binary_to_options(<<?DHO_END, _/binary>>, _Type, Acc) ->
+    Acc;
+binary_to_options(<<Tag, Rest/binary>>, Type, Acc) ->
+    Value = case Type(Tag) of
 		byte ->
 		    <<1, Byte, T/binary>> = Rest,
 		    Byte;
@@ -124,13 +131,14 @@ binary_to_options(<<Tag, Rest/binary>>, Acc) ->
 		    <<N, Binary:N/binary, T/binary>> = Rest,
 		    binary_to_iplist(Binary);
 		vendor ->
+                    io:format("Vendot encaps...~n"),
 		    <<N, Binary:N/binary, T/binary>> = Rest,
-		    binary_to_options(Binary);
+		    lists:reverse(binary_to_options(Binary, fun (_) -> string end));
 		unknown ->
 		    <<N, Binary:N/binary, T/binary>> = Rest,
 		    Binary
 	    end,
-    binary_to_options(T, [{Tag, Value} | Acc]).
+    binary_to_options(T, Type, [{Tag, Value} | Acc]).
 
 options_to_binary(Options) ->
     L = [<<(option_to_binary(Tag, Val))/binary>> || {Tag, Val} <- Options],
@@ -156,7 +164,7 @@ option_to_binary(Tag, Val) ->
 	    B = list_to_binary([ip_to_binary(IP) || IP <- Val]),
 	    <<Tag, (size(B)), B/binary>>;
 	vendor ->
-	    B = list_to_binary([<<T, (size(V)), V/binary>> || {T, V} <- Val]),
+	    B = list_to_binary([<<T, (length(V)), (list_to_binary(V))/binary>> || {T, V} <- Val]),
 	    <<Tag, (size(B)), B/binary>>
     end.
 
@@ -244,3 +252,4 @@ type(?DHO_AUTO_CONFIGURE)              -> byte;
 type(?DHO_NAME_SERVICE_SEARCH)         -> shortlist;
 type(?DHO_SUBNET_SELECTION)            -> ip;
 type(_)                                -> unknown.
+
