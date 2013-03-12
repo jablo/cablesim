@@ -1,13 +1,15 @@
 -module(main).
 -export([r/0, run/0, stop/1]).
+-include("cm.hrl").
 
 r() ->
     CmtsId = cmts,
     LogFile = "/tmp/log.log",
     error_logger:logfile({open, LogFile}),
-    cmts:start_link(CmtsId, LogFile),
+    cmts:start_link(CmtsId, {192,168,56,102}, {192,168,56,105}),
+    [CMTemplate|_] = modemmodels:cpedb(),
     CmId1 = cm1,
-    cm:start_link(CmtsId, CmId1, {00,00,00,00,00,01}).
+    cm:start_link(CmtsId, CmId1, #device{mac={00,00,00,00,00,01}, template=CMTemplate}).
 
 run() ->
     CmtsId = cmts,

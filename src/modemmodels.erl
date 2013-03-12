@@ -9,6 +9,65 @@
 
 -export([cpedb/0]).
 
+-include("cm.hrl").
+
+cpedb() ->
+    [#device_template{id = 1,
+          vendor = "Netgear",
+          model = "CG3000",
+          firmware = "1.0",
+          hwversion = "1",
+          vendor_class_id = "docsis3.0",
+          vendor_options = [{2,"ECM"},
+                            {3,"ECM:EMTA:EPS"},
+                            {4,"2BG104UJ01191"},
+                            {5,"1.04"},
+                            {6,"3.9.21.7.mp2.V0016RC1"},
+                            {7,"2.3.0"},
+                            {8,"00095B"},
+                            {9,"CG3000"},
+                            {10,"Netgear"},
+                            {254,"\b"}],
+          client_id_fun = fun (#device{mac={A,B,C,D,E,F}}) -> [16#ff,C,D,E,F,0,03,00,01,A,B,C,D,E,F] end,
+          parameter_request_list = [1,2,3,4,7,6,122]
+         }].
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Returns a list of dhcp client options that is specific for a given
+%% combination of Vendor, Model, HWVersion and Firmware
+%%
+%% @spec (String, String, String, String) -> [{int, ???}]
+%% @end
+%%--------------------------------------------------------------------
+
+
+
+%giaddr=10.23.0.1,
+%dhcp-message-type=01,
+%relay-agent-circuit-id=01:04:80:03:07:7a,
+%dhcp-parameter-request-list=1,2,3,4,7,6,122, 
+%client-id-created-from-mac-address=0,
+%relay-agent-remote-id=02:06:30:46:9a:7a:36:0c,
+%client-id=ff:9a:7a:36:0c:00:03:00:01:30:46:9a:7a:36:0c,
+%dhcp-class-identifier=docsis3.0:,
+%chaddr=30:46:9a:7a:36:0c,
+%vendor-encapsulated-options=
+%02:03:45:43:4d:03:0c:45:43:4d:3a:45:4d:54:41:3a:45:50:53:04:0d:32:42:47:
+%31:30:34:55:4a:30:31:31:39:31:05:04:31:2e:30:34:06:15:33:2e:39:2e:32:31:
+%2e:37:2e:6d:70:32:2e:56:30:30:31:36:52:43:31:07:05:32:2e:33:2e:30:08:06:
+%30:30:30:39:35:42:09:06:43:47:33:30:30:30:0a:07:4e:65:74:67:65:61:72:fe:01:08
+
+
+
+
+%-define(DHO_VENDOR_ENCAPSULATED_OPTIONS, 43).
+%-define(DHO_VENDOR_CLASS_IDENTIFIER,     60).
+%-define(DHO_DHCP_AGENT_OPTIONS,          82). %% rfc3046
+
+%client-id=ff:9a:7a:36:0c:00:03:00:01:30:46:9a:7a:36:0c,
+
+
 %o43() ->
 %    <<43:8, 98:8, 
 %      16#02:8,16#03:8,16#45:8,16#43:8,16#4d:8,16#03:8,16#0c:8,16#45:8,16#43:8,16#4d:8,16#3a:8,16#45:8,16#4d:8,16#54:8,
@@ -31,56 +90,3 @@
 %      16#30:8,16#30:8,16#0a:8,16#07:8,16#4e:8,16#65:8,16#74:8,16#67:8,16#65:8,16#61:8,16#72:8,16#fe:8,16#01:8,16#08:8
 %    >>.
 
-% cpe - customer placed equipment
-% Describes both cable modems, mta and routers/computers
--record(cpe, {
-          id,                         % short atom id
-          type = cm,                  % cm, mta or cpe
-          vendor,                     % vendor string
-          model,                      % model string
-          firmware,                   % firmware version
-          hwversion,                  % hardware version
-          dhcp_module = dhcp_client,  % dhcp state machine implementation
-          tftp_module = undefined,    % tftp implementing state machine
-          tod_module = undefined,     % tod protocol implementation
-          vendor_options = [],        % dhcp option43 options
-          vendor_class_id,            % dhcp option60 vendor class string
-          client_identifier = [],     % dhcp option61 client identifier
-          parameter_request_list = [] % dhcp option55
-         }). 
-
-cpedb() ->
-    [#cpe{id = 1,
-          vendor = "Netgear",
-          model = "CG3000",
-          firmware = "1.0",
-          hwversion = "1",
-          vendor_options = [{2,"ECM"},
-                            {3,"ECM:EMTA:EPS"},
-                            {4,"2BG104UJ01191"},
-                            {5,"1.04"},
-                            {6,"3.9.21.7.mp2.V0016RC1"},
-                            {7,"2.3.0"},
-                            {8,"00095B"},
-                            {9,"CG3000"},
-                            {10,"Netgear"},
-                            {254,"\b"}],
-          vendor_class_id = "docsis3.0"}].
-
-%%--------------------------------------------------------------------
-%% @doc
-%% Returns a list of dhcp client options that is specific for a given
-%% combination of Vendor, Model, HWVersion and Firmware
-%%
-%% @spec (String, String, String, String) -> [{int, ???}]
-%% @end
-%%--------------------------------------------------------------------
-
-
-
-
-%-define(DHO_VENDOR_ENCAPSULATED_OPTIONS, 43).
-%-define(DHO_VENDOR_CLASS_IDENTIFIER,     60).
-%-define(DHO_DHCP_AGENT_OPTIONS,          82). %% rfc3046
-
-%client-id=ff:9a:7a:36:0c:00:03:00:01:30:46:9a:7a:36:0c,

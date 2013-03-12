@@ -34,8 +34,9 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
 -include("dhcp.hrl").
+-include("cm.hrl").
 
--record(state, {server_id, cmts=undefined, cm_dhcp, linkstate=offline}).
+-record(state, {server_id, cmts=undefined, cm_dhcp, linkstate=offline, device}).
 % add state: cm_tftp, cm_tod, cm_mta, cm_cpe for other embedded devices
 
 %%====================================================================
@@ -45,12 +46,12 @@
 %% Function: start_link() -> {ok,Pid} | ignore | {error,Error}
 %% Description: Starts the server
 %%--------------------------------------------------------------------
-start_link(ServerId, Mac) ->
+start_link(ServerId, Device = #device{}) ->
     gen_server:start_link({local, ServerId}, ?MODULE,
-			  [ServerId, Mac], [{debug,[trace]}]). %
-start_link(Cmts, ServerId, Mac) ->
+			  [ServerId, Device], [{debug,[trace]}]). %
+start_link(Cmts, ServerId, Device = #device{}) ->
     gen_server:start_link({local, ServerId}, ?MODULE,
-			  [ServerId, Mac, Cmts], [{debug,[trace]}]). %
+			  [ServerId, Device, Cmts], [{debug,[trace]}]). %
 
 stop(CmId) ->
     gen_server:cast(CmId, {stop}).
@@ -108,16 +109,16 @@ disconnect_cmts(CmId) ->
 %%                         {stop, Reason}
 %% Description: Initiates the server
 %%--------------------------------------------------------------------
-init([ServerId, Mac, Cmts]) ->
+init([ServerId, Device, Cmts]) ->
     error_logger:info_msg("Starting Cable Modem ~p~n", [ServerId]),
     DHCP_Ref = mk_unique_atom(ServerId, dhcp),
-    dhcp_client:start_link(DHCP_Ref, Mac, 
+    dhcp_client:start_link(DHCP_Ref, Device, 
                            fun (P) -> cm:send_packet(ServerId, P) end,
                            fun (B) -> cm:linkstate(ServerId, B) end),
     {ok, #state{server_id=ServerId, cmts=Cmts, cm_dhcp=DHCP_Ref, linkstate=offline}};
-init([ServerId, Mac]) ->
+init([ServerId, Device]) ->
     DHCP_Ref = mk_unique_atom(ServerId, dhcp),
-    dhcp_client:start_link(DHCP_Ref, Mac, 
+    dhcp_client:start_link(DHCP_Ref, Device, 
                            fun (P) -> cm:send_packet(ServerId, P) end,
                            fun (B) -> cm:linkstate(ServerId, B) end),
     {ok, #state{server_id=ServerId, cmts=undefined, cm_dhcp=DHCP_Ref, linkstate=offline}}.

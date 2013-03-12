@@ -24,11 +24,12 @@
 
 -include("simul.hrl").
 -include("dhcp.hrl").
+-include("cm.hrl").
 
 %%
 %% state data
 %%
--record(state, {ip="", leasetime=0, bindtime=0, send_fun, bound_fun, name, mac=""}).
+-record(state, {ip="", leasetime=0, bindtime=0, send_fun, bound_fun, name, device}).
 -define(RETRANSMIT_TIMEOUT, 5000).
 -define(RENEW_TIMEOUT, 30000).
 
@@ -45,10 +46,10 @@
 %% @spec start_link(N, MAC, SendFun, OnlineFun) -> {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
-start_link(N, MAC, SendFun) ->
-    start_link(N, MAC, SendFun, fun (_) -> ok end).
-start_link(N, MAC, SendFun, OnlineFun) ->
-    gen_fsm:start_link({local, N}, dhcp_client, [N, MAC, SendFun, OnlineFun], [{debug,[trace]}]). %
+start_link(N, Device, SendFun) ->
+    start_link(N, Device, SendFun, fun (_) -> ok end).
+start_link(N, Device, SendFun, OnlineFun) ->
+    gen_fsm:start_link({local, N}, dhcp_client, [N, Device, SendFun, OnlineFun], [{debug,[trace]}]). %
 
 %% send a stop this will end up in "handle_event"
 stop(N)  -> gen_fsm:send_all_state_event(N, {stop}).
@@ -86,9 +87,9 @@ receive_packet(N, PACKET) ->
 %% {stop, StopReason}
 %% @end
 %%--------------------------------------------------------------------
-init([N, MAC, SendFun, OnlineFun]) ->
+init([N, Device, SendFun, OnlineFun]) ->
     error_logger:info_msg("Starting DHCP Client ~p~n", [N]),
-    {ok, poweroff, #state{send_fun=SendFun, bound_fun=OnlineFun, name=N, mac=MAC}}.
+    {ok, poweroff, #state{send_fun=SendFun, bound_fun=OnlineFun, name=N, device=Device}}.
 
 %%
 %% Shoudld be called on every state change...
@@ -271,31 +272,48 @@ code_change(_OldVsn, StateName, State, _Extra) ->
 %%% Utility functions
 %%%===================================================================
 
-send_discover(#state{send_fun=SendFun, mac=Mac}) ->
+send_discover(#state{send_fun=SendFun, device=D}) -> %where is_record(device, D) ->
+    T = D#device.template,
+    io:format("Testing~n"),
+    io:format("Client ID: ~p~n", [(T#device_template.client_id_fun)(D)]),
     Discover = #dhcp{
       op = ?BOOTREQUEST,
-      chaddr = Mac,
-      options=[{?DHO_DHCP_MESSAGE_TYPE, ?DHCPDISCOVER}]
+      chaddr = D#device.mac,
+      options=[{?DHO_DHCP_MESSAGE_TYPE, ?DHCPDISCOVER},
+               {?DHO_VENDOR_CLASS_IDENTIFIER, T#device_template.vendor_class_id},
+               {?DHO_DHCP_CLIENT_IDENTIFIER, (T#device_template.client_id_fun)(D)},
+               {?DHO_DHCP_PARAMETER_REQUEST_LIST, T#device_template.parameter_request_list},
+               {?DHO_VENDOR_ENCAPSULATED_OPTIONS, T#device_template.vendor_options}]
      },
     %error_logger:info_msg("Send dhcp_discover ~p ~p~n", [CMTS, Discover]),
     SendFun(Discover).
 
-send_request(#state{send_fun=SendFun, mac=Mac, ip=IP}) ->
+send_request(#state{send_fun=SendFun, ip=IP, device=D}) ->
+    T = D#device.template,
     Request = #dhcp{
       op = ?BOOTREQUEST,
-      chaddr = Mac,
+      chaddr = D#device.mac,
       options=[{?DHO_DHCP_MESSAGE_TYPE, ?DHCPREQUEST},
-              {?DHO_DHCP_REQUESTED_ADDRESS, IP}]
+               {?DHO_DHCP_REQUESTED_ADDRESS, IP},
+               {?DHO_VENDOR_CLASS_IDENTIFIER, T#device_template.vendor_class_id},
+               {?DHO_DHCP_CLIENT_IDENTIFIER, (T#device_template.client_id_fun)(D)},
+               {?DHO_DHCP_PARAMETER_REQUEST_LIST, T#device_template.parameter_request_list},
+               {?DHO_VENDOR_ENCAPSULATED_OPTIONS, T#device_template.vendor_options}]
      },
     %error_logger:info_msg("Send dhcp_request ~p ~p~n", [CMTS, Request]),
     SendFun(Request).
 
-send_renew(#state{send_fun=SendFun, mac=Mac, ip=IP}) ->
+send_renew(#state{send_fun=SendFun, ip=IP, device=D}) ->
+    T = D#device.template,
     Request = #dhcp{
       op = ?BOOTREQUEST,
-      chaddr = Mac,
+      chaddr = D#device.mac,
       ciaddr = IP,
-      options=[{?DHO_DHCP_MESSAGE_TYPE, ?DHCPREQUEST}]
+      options=[{?DHO_DHCP_MESSAGE_TYPE, ?DHCPREQUEST},
+               {?DHO_VENDOR_CLASS_IDENTIFIER, T#device_template.vendor_class_id},
+               {?DHO_DHCP_CLIENT_IDENTIFIER, (T#device_template.client_id_fun)(D)},
+               {?DHO_DHCP_PARAMETER_REQUEST_LIST, T#device_template.parameter_request_list},
+               {?DHO_VENDOR_ENCAPSULATED_OPTIONS, T#device_template.vendor_options}]
      },
     %error_logger:info_msg("Send dhcp_request ~p ~p~n", [CMTS, Request]),
     SendFun(Request).
