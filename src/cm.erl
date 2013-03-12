@@ -34,7 +34,7 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
 -include("dhcp.hrl").
--include("cm.hrl").
+-include("device.hrl").
 
 -record(state, {server_id, cmts=undefined, cm_dhcp, linkstate=offline, device}).
 % add state: cm_tftp, cm_tod, cm_mta, cm_cpe for other embedded devices

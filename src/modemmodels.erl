@@ -9,7 +9,7 @@
 
 -export([cpedb/0]).
 
--include("cm.hrl").
+-include("device.hrl").
 
 cpedb() ->
     [#device_template{id = 1,

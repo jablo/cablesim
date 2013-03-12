@@ -25,7 +25,6 @@
         fmt_hostname/1]).
 
 -include("dhcp.hrl").
--include("simul.hrl").
 
 -define(DHCP_SERVER_PORT, 67).
 -define(DHCP_CLIENT_PORT, 68).

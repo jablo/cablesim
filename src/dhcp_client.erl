@@ -22,14 +22,21 @@
         dhcp_renewing/2]).
 % implicit states dhcp_init/1, dhcp_initreboot/1
 
--include("simul.hrl").
 -include("dhcp.hrl").
--include("cm.hrl").
+-include("device.hrl").
 
 %%
 %% state data
 %%
--record(state, {ip="", leasetime=0, bindtime=0, send_fun, bound_fun, name, device}).
+-record(state, {
+          ip="",                 % IP address obtained via the dhcp protocol
+          leasetime=0,           % lease time obtained via the dhcp protocol
+          bindtime=0,            % the time we received the lease
+          send_fun,              % callout fun used to send dhcp data packets
+          bound_fun,             % callout fun used to signal link state changes
+          name,                  % name of this state machine 
+          device                 % device structure describing this dhcp client
+         }).
 -define(RETRANSMIT_TIMEOUT, 5000).
 -define(RENEW_TIMEOUT, 30000).
 
