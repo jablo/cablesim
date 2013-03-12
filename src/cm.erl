@@ -5,7 +5,7 @@
 %%%
 %%% Created : 08 March 2013 by Jacob Lorensen <jalor@yousee.dk> 
 %%%
-%%% Simulating a cable modem essentially consists of fowarding packets from
+%%% Simulating a cable modem essentially consists of forwarding packets from
 %%% cable modem sub-components: DHCP client, TFTP client, ToD client.
 %%% and other optional sub-components: eMTA, CPE
 %%% The latter (eMTA and CPE) need special treatment in that DHCP option 82 
@@ -139,34 +139,29 @@ handle_call(_Request, _From, State) ->
     {reply, Reply, State}.
 
 %%--------------------------------------------------------------------
-%% @private
-%% @doc
-%% Whenever a gen_fsm receives an event sent using
-%% gen_fsm2:send_all_state_event/2, this function is called to handle
-%% the event.
-%%
-%% @spec handle_event(Event, StateName, State) ->
-%% {next_state, NextStateName, NextState} |
-%% {next_state, NextStateName, NextState, Timeout} |
-%% {stop, Reason, NewState}
-%% @end
+%% Function: handle_cast(Msg, State) -> {noreply, State} |
+%%                                      {noreply, State, Timeout} |
+%%                                      {stop, Reason, State}
+%% Description: Handling cast messages
 %%--------------------------------------------------------------------
 handle_cast({stop}, StateData) ->
     {stop, normal, StateData};   %% tell it to stop
+% External event: tell the cable modem to power off
 handle_cast({poweroff}, StateData = #state{cm_dhcp=DHCP}) ->
     dhcp_client:poweroff(DHCP),
     {noreply, StateData};
+% External event: tell the cable modem to power off
 handle_cast({reset}, StateData = #state{cm_dhcp=DHCP}) ->
     dhcp_client:reset(DHCP),
     {noreply, StateData};
+% External event: tell the cable modem to reset
 handle_cast({poweron}, StateData = #state{cm_dhcp=DHCP}) ->
     dhcp_client:poweron(DHCP),
     {noreply, StateData};
-% re-connecting is tricky, and not entirely correct here
-% see Rebinding... later...
+% External event: tell the cable modem to (re-)connect to a (different) cmts
 handle_cast({connect, CmtsId}, StateData = #state{cm_dhcp=DHCP}) ->
     if StateData#state.cmts =:= undefined ->
-            StateData2 = StateData#state{cmts=CmtsId, linkstate=offline},
+            StateData2 = StateData#state{cmts=CmtsId},
             cmts:connect(StateData2#state.cmts, StateData2#state.server_id),
             dhcp_client:reset(DHCP),
             {noreply, StateData2};
@@ -174,24 +169,28 @@ handle_cast({connect, CmtsId}, StateData = #state{cm_dhcp=DHCP}) ->
             {noreply, StateData};
        true ->
             cmts:disconnect(StateData#state.cmts, StateData#state.server_id),
-            StateData2 = StateData#state{cmts=CmtsId, linkstate=offline},
-            cmts:connect(StateData2#state.cmts, StateData2#state.server_id),
             dhcp_client:reset(DHCP),
+            StateData2 = StateData#state{cmts=CmtsId},
+            cmts:connect(StateData2#state.cmts, StateData2#state.server_id),
             {noreply, StateData2}
     end;
-handle_cast({disconnect}, StateData) ->
+% External event: tell the cable modem we're not connected to a cmts
+handle_cast({disconnect}, StateData = #state{cm_dhcp=DHCP}) ->
     cmts:disconnect(StateData#state.cmts, StateData#state.server_id),
-    StateData2 = StateData#state{cmts=undefined, linkstate=offline},
+    dhcp_client:reset(DHCP),
+    StateData2 = StateData#state{cmts=undefined},
     {noreply, StateData2};
-% handles DHCP client status feedback
+% handles DHCP client link status feedback
 handle_cast({linkstate, L}, StateData) ->
     {noreply, StateData#state{linkstate=L}};
+% handles cable modem client network communication
 handle_cast({send_packet, _P}, StateData = #state{cmts=undefined, cm_dhcp=DHCP}) ->
     dhcp_client:poweroff(DHCP),
     {noreply, StateData};
 handle_cast({send_packet, P}, StateData = #state{cmts=Cmts, server_id=Me}) ->
     cmts:send_packet(Cmts, P, Me),
     {noreply, StateData};
+% handles embedded device (mta, cpe) network communication
 handle_cast({relay_packet, _}, StateData = #state{cmts=undefined}) ->
     {noreply, StateData};
 handle_cast({relay_packet, _}, StateData = #state{linkstate=offline}) ->
@@ -201,6 +200,7 @@ handle_cast({relay_packet, P}, StateData = #state{cmts=Cmts, server_id=Me}) ->
     % replace, add option-82 to dhcp packets; leave others alone
     cmts:send_packet(Cmts, P, Me),
     {noreply, StateData};
+% handles network packets received from cmts
 handle_cast({receive_packet, P = #dhcp{}}, StateData = #state{cm_dhcp=Dhcp}) ->
     dhcp_client:receive_packet(Dhcp, P),
     {noreply, StateData}.
