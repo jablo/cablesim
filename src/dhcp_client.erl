@@ -38,12 +38,15 @@
 %% initialize. To ensure a synchronized start-up procedure, this
 %% function does not return until Module:init/1 has returned.
 %%
-%% @spec start_link() -> {ok, Pid} | ignore | {error, Error}
+%% SendFun is the function called by the dhcp client to send a network packet
+%% OnlineFun is the function called by the dhcp client to signal linkstate online/offline
+%%
+%% @spec start_link(N, MAC, SendFun) -> {ok, Pid} | ignore | {error, Error}
+%% @spec start_link(N, MAC, SendFun, OnlineFun) -> {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
 start_link(N, MAC, SendFun) ->
-    gen_fsm:start_link({local, N}, dhcp_client, 
-                       [N, MAC, SendFun, fun (_) -> ok end], [{debug,[trace]}]). %
+    start_link(N, MAC, SendFun, fun (_) -> ok end).
 start_link(N, MAC, SendFun, OnlineFun) ->
     gen_fsm:start_link({local, N}, dhcp_client, [N, MAC, SendFun, OnlineFun], [{debug,[trace]}]). %
 
