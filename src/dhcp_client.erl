@@ -279,10 +279,8 @@ code_change(_OldVsn, StateName, State, _Extra) ->
 %%% Utility functions
 %%%===================================================================
 
-send_discover(#state{send_fun=SendFun, device=D}) -> %where is_record(device, D) ->
+send_discover(#state{send_fun=SendFun, device=D}) when is_record(D, device) ->
     T = D#device.template,
-    io:format("Testing~n"),
-    io:format("Client ID: ~p~n", [(T#device_template.client_id_fun)(D)]),
     Discover = #dhcp{
       op = ?BOOTREQUEST,
       chaddr = D#device.mac,
@@ -292,7 +290,6 @@ send_discover(#state{send_fun=SendFun, device=D}) -> %where is_record(device, D)
                {?DHO_DHCP_PARAMETER_REQUEST_LIST, T#device_template.parameter_request_list},
                {?DHO_VENDOR_ENCAPSULATED_OPTIONS, T#device_template.vendor_options}]
      },
-    %error_logger:info_msg("Send dhcp_discover ~p ~p~n", [CMTS, Discover]),
     SendFun(Discover).
 
 send_request(#state{send_fun=SendFun, ip=IP, device=D}) ->
@@ -307,7 +304,6 @@ send_request(#state{send_fun=SendFun, ip=IP, device=D}) ->
                {?DHO_DHCP_PARAMETER_REQUEST_LIST, T#device_template.parameter_request_list},
                {?DHO_VENDOR_ENCAPSULATED_OPTIONS, T#device_template.vendor_options}]
      },
-    %error_logger:info_msg("Send dhcp_request ~p ~p~n", [CMTS, Request]),
     SendFun(Request).
 
 send_renew(#state{send_fun=SendFun, ip=IP, device=D}) ->
@@ -322,5 +318,4 @@ send_renew(#state{send_fun=SendFun, ip=IP, device=D}) ->
                {?DHO_DHCP_PARAMETER_REQUEST_LIST, T#device_template.parameter_request_list},
                {?DHO_VENDOR_ENCAPSULATED_OPTIONS, T#device_template.vendor_options}]
      },
-    %error_logger:info_msg("Send dhcp_request ~p ~p~n", [CMTS, Request]),
     SendFun(Request).

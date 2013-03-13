@@ -1,6 +1,6 @@
 -module(main).
 -export([r/0, run/0, stop/1]).
--include("cm.hrl").
+-include("device.hrl").
 
 r() ->
     CmtsId = cmts,
