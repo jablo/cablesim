@@ -10,11 +10,12 @@
 %%% http://askubuntu.com/questions/8250/weird-issue-with-iptables-redirection
 %%%-------------------------------------------------------------------
 -module(cmts).
+-compile([debug_info, export_all]).
 
 -behaviour(gen_server).
 
 %% Public API
--export([start_link/3, send_packet/3, stop/1, reboot/1, disconnect/2]).
+-export([start_link/3, send_packet/3, stop/1, reboot/1, disconnect/2, connect/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, 
@@ -53,6 +54,10 @@ send_packet(CMTS, Packet, CmId) ->
 %% Cable modem call this to disconnect from the cmts
 disconnect(Cmts, CmId) ->
     gen_server:cast(Cmts, {disconnect, CmId}).
+
+%% Cable modems can call this to establish connection explicitly
+connect(_Cmts, _CmId) ->
+    ok. % noop, since sending packets does implicit connect
 
 %% reset cmts (ie, reset all connected cable modems)
 reboot(Cmts) ->

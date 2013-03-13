@@ -6,14 +6,29 @@
 %%% Created : 08 March 2013 by Jacob Lorensen <jalor@yousee.dk> 
 %%%-------------------------------------------------------------------
 -module(modemmodels).
+-compile([debug_info, export_all]).
 
 -export([cpedb/0]).
 
 -include("device.hrl").
 
+mk_atom(Prefix, Postfix) ->
+    list_to_atom(atom_to_list(Prefix) ++ "_" ++ atom_to_list(Postfix)).
+
+create_std_dhcp_client(D, Postfix) when is_record(D, device) ->
+                                                % Create the dhcp_client:
+    io:format("Create device ~p ~n", [D]),
+    DHCP_Ref = mk_atom(D#device.server_id, Postfix),
+    D2 = D#device{dhcp_client = DHCP_Ref},
+    dhcp_client:start_link(DHCP_Ref, D2),
+    D2.
+
 cpedb() ->
     [#device_template
      {id = cg3000_cm,
+      create_fun = fun (D) -> create_std_dhcp_client(D, dhcp) end,
+      send_packet_fun = fun (D, P) -> cm:send_packet(D#device.server_id, P) end,
+      linkstate_fun = fun (D, B) -> cm:linkstate(D#device.server_id, B) end,
       vendor_class_id = "docsis3.0",
       vendor_options = [{2,"ECM"},
                         {3,"ECM:EMTA:EPS"},
@@ -30,6 +45,12 @@ cpedb() ->
      },
      #device_template
      {id = cg3000_mta,
+      create_fun = fun (D) -> create_std_dhcp_client(D, mta) end,
+      send_packet_fun = fun (D, P) -> 
+                                io:format("Sending packet from mta ~p~n", [P]),
+                                cm:relay_packet(D#device.upstream_id, P) 
+                        end,
+      linkstate_fun = fun (_, _) -> ok end,
       vendor_class_id = 
           "pktc1.0:051f0101000201020901010b04060903040c01010d01010f010110010912020007",
       vendor_options = 
@@ -48,6 +69,9 @@ cpedb() ->
      },
      #device_template
      {id = cg3000_cpe,
+      create_fun = fun (D) -> create_std_dhcp_client(D, cpe) end,
+      send_packet_fun = fun (D, P) -> cm:relay_packet(D#device.server_id, P) end,
+      linkstate_fun = fun (_, _) -> ok end,
       vendor_class_id = "",
       vendor_options = [],
       client_id_fun = fun (#device{mac={A,B,C,D,E,F}}) -> [16#ff,C,D,E,F,0,03,00,01,A,B,C,D,E,F] end,

@@ -1,4 +1,5 @@
 -module(cablesim_app).
+-compile([debug_info, export_all]).
 
 -behaviour(application).
 

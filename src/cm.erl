@@ -21,11 +21,11 @@
 %%% http://askubuntu.com/questions/8250/weird-issue-with-iptables-redirection
 %%%-------------------------------------------------------------------
 -module(cm).
-
+-compile([debug_info, export_all]).
 -behaviour(gen_server).
 
 %% public api (from cm)
--export([stop/1, start_link/4, start_link/3, start_link/2, 
+-export([stop/1, start_link/1, start_link/2, 
          send_packet/2, relay_packet/2, receive_packet/2, linkstate/2,
          poweron/1, poweroff/1, reset/1, 
          connect_cmts/2, disconnect_cmts/1]).
@@ -37,8 +37,6 @@
 -include("device.hrl").
 
 -record(state, {
-          server_id,             % 
-          cmts=undefined,        % cmts cable modem is connected to
           linkstate=offline,     % link state obtained from the built in dhcp client
           device,                % cable modem's mac address, dhcp template, and built in sub servers
           devices_behind         % list of devices behind this cable modem
@@ -51,14 +49,11 @@
 %% Function: start_link() -> {ok,Pid} | ignore | {error,Error}
 %% Description: Starts the server
 %%--------------------------------------------------------------------
-start_link(CmId, Device) ->
-    start_link(CmId, Device, []).
-start_link(CmId, Device = #device{}, BehindDevs) ->
-    gen_server:start_link({local, CmId}, ?MODULE,
-			  [CmId, Device, BehindDevs], [{debug,[trace]}]). %
-start_link(Cmts, CmId, Device = #device{}, BehindDevs) ->
-    gen_server:start_link({local, CmId}, ?MODULE,
-			  [CmId, Device, BehindDevs, Cmts], [{debug,[trace]}]). %
+start_link(Device) ->
+    start_link(Device, []).
+start_link(Device = #device{}, BehindDevs) ->
+    gen_server:start_link({local, Device#device.server_id}, ?MODULE,
+			  [Device, BehindDevs], [{debug,[trace]}]). %
 
 stop(CmId) ->
     gen_server:cast(CmId, {stop}).
@@ -116,34 +111,25 @@ disconnect_cmts(CmId) ->
 %%                         {stop, Reason}
 %% Description: Initiates the server
 %%--------------------------------------------------------------------
-init([CmId, Device, BehindDevs, Cmts]) when is_record(Device, device) ->
-    error_logger:info_msg("Starting Cable Modem ~p~n", [CmId]),
-    DHCP_Ref = mk_atom(CmId, dhcp),
-    Device2 = Device#device{dhcp_client = DHCP_Ref},
-    dhcp_client:start_link(DHCP_Ref, Device2, 
-                           fun (P) -> cm:send_packet(CmId, P) end,
-                           fun (B) -> cm:linkstate(CmId, B) end),
+init([Device, BehindDevs]) when is_record(Device, device) ->
+    error_logger:info_msg("Starting Cable Modem ~p~n", [Device#device.server_id]),
+    T = Device#device.template,
+    D2 = (T#device_template.create_fun)(Device),
     % Create dhcp server component on all behind-devices
-    BehindDevs2 = list:map(
-                    fun (D) ->
-                            dhcp_client:start_link(
-                              Did = mk_atom(CmId, tuple_to_list(D#device.mac)),
-                              D,
-                              fun (P) -> cm:relay_packet(CmId, P) end,
-                              fun (_) -> ok end),
-                            D#device{dhcp_client=Did}
+    io:format("Creating behind devices ~p~n", [BehindDevs]),
+    BehindDevs2 = lists:map(
+                    fun (F_D) when is_record(F_D, device) ->
+                            io:format("Going to create ~p~n", [F_D]),
+                            F_T = F_D#device.template,
+                            io:format("Template is: ~p~n", [F_T]),
+                            F_F = F_T#device_template.create_fun, 
+                            io:format("Create fun is: ~p~n", [F_F]),
+                            F_F(F_D)
                     end,
                     BehindDevs),
-    {ok, #state{server_id=CmId, 
-                cmts=Cmts, 
-                device = Device2,
+    {ok, #state{device = D2,
                 devices_behind = BehindDevs2,
-                linkstate=offline}};
-init([CmId, Device, BehindDevs]) ->
-    init([CmId, Device, BehindDevs, undefined]).
-
-mk_atom(Prefix, Postfix) ->
-    list_to_atom(atom_to_list(Prefix) ++ "_" ++ atom_to_list(Postfix)).
+                linkstate=offline}}.
 
 %%--------------------------------------------------------------------
 %% Function: %% handle_call(Request, From, State) -> {reply, Reply, State} |
@@ -167,68 +153,79 @@ handle_call(_Request, _From, State) ->
 handle_cast({stop}, StateData) ->
     {stop, normal, StateData};   %% tell it to stop
 % External event: tell the cable modem to power off
-handle_cast({poweroff}, StateData) when is_record(StateData, state) ->
+handle_cast({poweroff}, StateData = #state{device = Device, devices_behind = DevBehind}) ->
     Device = StateData#state.device,
     dhcp_client:poweroff(Device#device.dhcp_client),
+    lists:foreach(fun (D) -> dhcp_client:poweroff(D#device.dhcp_client) end,
+                  DevBehind),
+    cmts:disconnect(Device#device.upstream_id),
     {noreply, StateData};
 % External event: tell the cable modem to power off
-handle_cast({reset}, StateData) when is_record(StateData, state) ->
-    Device = StateData#state.device,
+handle_cast({reset}, StateData = #state{device = Device, devices_behind = DevBehind}) ->
     dhcp_client:reset(Device#device.dhcp_client),
+    lists:foreach(fun (D) -> dhcp_client:reset(D#device.dhcp_client) end,
+                  DevBehind),
     {noreply, StateData};
 % External event: tell the cable modem to reset
-handle_cast({poweron}, StateData) when is_record(StateData, state) ->
-    Device = StateData#state.device,
+handle_cast({poweron}, StateData = #state{device = Device, devices_behind = DevBehind}) ->
     dhcp_client:poweron(Device#device.dhcp_client),
+    lists:foreach(fun (D) -> dhcp_client:poweron(D#device.dhcp_client) end,
+                  DevBehind),
     {noreply, StateData};
 % External event: tell the cable modem to (re-)connect to a (different) cmts
-handle_cast({connect, CmtsId}, StateData) when is_record(StateData, state) ->
-    Device = StateData#state.device,
-    if StateData#state.cmts =:= undefined ->
-            StateData2 = StateData#state{cmts=CmtsId},
-            cmts:connect(StateData2#state.cmts, StateData2#state.server_id),
-            dhcp_client:reset(Device#device.dhcp_client),
-            {noreply, StateData2};
-       CmtsId =:= StateData#state.cmts ->
+handle_cast({connect, CmtsId}, StateData = #state{device = Device, devices_behind = DevBehind}) ->
+    if Device#device.upstream_id =:= undefined ->
+            Device2 = Device#device{upstream_id = CmtsId},
+            dhcp_client:reset(Device2#device.dhcp_client),
+            lists:foreach(fun (D) -> dhcp_client:reset(D#device.dhcp_client) end,
+                          DevBehind),
+            {noreply, StateData#state{device = Device2}};
+       CmtsId =:= Device#device.upstream_id ->
             {noreply, StateData};
        true ->
-            cmts:disconnect(StateData#state.cmts, StateData#state.server_id),
+            cmts:disconnect(Device#device.upstream_id, Device#device.server_id),
             dhcp_client:reset(Device#device.dhcp_client),
-            StateData2 = StateData#state{cmts=CmtsId},
-            cmts:connect(StateData2#state.cmts, StateData2#state.server_id),
-            {noreply, StateData2}
+            lists:foreach(fun (D) -> dhcp_client:reset(D#device.dhcp_client) end,
+                          DevBehind),
+            Device2 = Device#device{upstream_id=CmtsId},
+            {noreply, StateData#state{device=Device2}}
     end;
 % External event: tell the cable modem we're not connected to a cmts
-handle_cast({disconnect}, StateData) when is_record(StateData, state) ->
-    Device = StateData#state.device,
-    cmts:disconnect(StateData#state.cmts, StateData#state.server_id),
+handle_cast({disconnect}, StateData = #state{device = Device, devices_behind = DevBehind}) ->
+    cmts:disconnect(Device#device.upstream_id, Device#device.server_id),
     dhcp_client:reset(Device#device.dhcp_client),
-    StateData2 = StateData#state{cmts=undefined},
-    {noreply, StateData2};
+    lists:foreach(fun (D) -> dhcp_client:reset(D#device.dhcp_client) end,
+                  DevBehind),
+    Device2 = Device#device{upstream_id=undefined},
+    {noreply, StateData#state{device = Device2}};
 % handles DHCP client link status feedback
 handle_cast({linkstate, L}, StateData) ->
     {noreply, StateData#state{linkstate=L}};
 % handles cable modem client network communication
-handle_cast({send_packet, _P}, StateData = #state{cmts=undefined}) ->
-    Device = StateData#state.device,
+handle_cast({send_packet, _P}, StateData = #state{device = Device}) 
+  when Device#device.upstream_id =:= undefined ->
     dhcp_client:poweroff(Device#device.dhcp_client),
     {noreply, StateData};
-handle_cast({send_packet, P}, StateData = #state{cmts=Cmts, server_id=Me}) ->
+handle_cast({send_packet, P}, StateData = #state{device = Device}) ->
+    Cmts = Device#device.upstream_id,
+    Me = Device#device.server_id,
     cmts:send_packet(Cmts, P, Me),
     {noreply, StateData};
 % handles embedded device (mta, cpe) network communication
-handle_cast({relay_packet, _}, StateData = #state{cmts=undefined}) ->
+handle_cast({relay_packet, _}, StateData = #state{device = Device})
+  when Device#device.upstream_id =:= undefined ->
     {noreply, StateData};
 handle_cast({relay_packet, _}, StateData = #state{linkstate=offline}) ->
     {noreply, StateData};
-handle_cast({relay_packet, P}, StateData = #state{cmts=Cmts, server_id=Me}) ->
-    error_log:info_msg("Relaying not implemented correctly yet"),
+handle_cast({relay_packet, P}, StateData = #state{device = Device}) ->
+    Cmts = Device#device.upstream_id,
+    Me = Device#device.server_id,
+    error_logger:info_msg("Relaying not implemented correctly yet, opt82 missing from dhcp packets;"),
     % replace, add option-82 to dhcp packets; leave others alone
     cmts:send_packet(Cmts, P, Me),
     {noreply, StateData};
 % handles network packets received from cmts
-handle_cast({receive_packet, P = #dhcp{}}, StateData) when is_record(StateData, state) ->
-    Device = StateData#state.device,
+handle_cast({receive_packet, P = #dhcp{}}, StateData = #state{device = Device}) ->
     dhcp_client:receive_packet(Device#device.dhcp_client, P),
     {noreply, StateData}.
 

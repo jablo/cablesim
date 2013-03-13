@@ -6,10 +6,11 @@
 %%% Created : 08 March 2013 by Jacob Lorensen <jalor@yousee.dk> 
 %%%-------------------------------------------------------------------
 -module(dhcp_client).
+-compile([debug_info, export_all]).
 -behaviour(gen_fsm).
 
 %% public api
--export([stop/1, start_link/3, start_link/4,
+-export([stop/1, start_link/2,
          poweron/1, poweroff/1, reset/1, 
          receive_packet/2]).
 
@@ -32,8 +33,6 @@
           ip="",                 % IP address obtained via the dhcp protocol
           leasetime=0,           % lease time obtained via the dhcp protocol
           bindtime=0,            % the time we received the lease
-          send_fun,              % callout fun used to send dhcp data packets
-          bound_fun,             % callout fun used to signal link state changes
           name,                  % name of this state machine 
           device                 % device structure describing this dhcp client
          }).
@@ -53,10 +52,8 @@
 %% @spec start_link(N, MAC, SendFun, OnlineFun) -> {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
-start_link(N, Device, SendFun) ->
-    start_link(N, Device, SendFun, fun (_) -> ok end).
-start_link(N, Device, SendFun, OnlineFun) ->
-    gen_fsm:start_link({local, N}, dhcp_client, [N, Device, SendFun, OnlineFun], [{debug,[trace]}]). %
+start_link(N, Device) ->
+    gen_fsm:start_link({local, N}, dhcp_client, [N, Device], [{debug,[trace]}]). %
 
 %% send a stop this will end up in "handle_event"
 stop(N)  -> gen_fsm:send_all_state_event(N, {stop}).
@@ -94,12 +91,14 @@ receive_packet(N, PACKET) ->
 %% {stop, StopReason}
 %% @end
 %%--------------------------------------------------------------------
-init([N, Device, SendFun, OnlineFun]) ->
+init([N, Device]) ->
     error_logger:info_msg("Starting DHCP Client ~p~n", [N]),
-    {ok, poweroff, #state{send_fun=SendFun, bound_fun=OnlineFun, name=N, device=Device}}.
+    {ok, poweroff, #state{
+           name=N, 
+           device=Device}}.
 
 %%
-%% Shoudld be called on every state change...
+%% Should be called on every state change...
 %%
 handle_state(StateName, State) ->
     io:format("I'm in a new state ~p~n",[StateName]),
@@ -126,7 +125,9 @@ dhcp_requesting(timeout, StateData) ->
     dhcp_init(StateData).
 
 % implicit dhcp_initreboot state
-dhcp_initreboot(StateData = #state{bound_fun=BoundFun}) ->
+dhcp_initreboot(StateData = #state{device = Device}) ->
+    T = Device#device.template,
+    BoundFun = T#device_template.linkstate_fun,
     BoundFun(offline),
     send_request(StateData),
     {next_state, dhcp_rebooting, StateData, ?RETRANSMIT_TIMEOUT}.
@@ -152,26 +153,29 @@ dhcp_renewing(timeout, StateData) ->
     end.
 
 % implicit dhcp_init state
-dhcp_init(StateData = #state{bound_fun=BoundFun}) ->
-    BoundFun(offline),
+dhcp_init(StateData = #state{device=D}) ->
+    T = D#device.template,
+    BoundFun = T#device_template.linkstate_fun,
+    BoundFun(D, offline),
     send_discover(StateData),
     {next_state, dhcp_selecting, StateData, ?RETRANSMIT_TIMEOUT}.
 
-handle_dhcp_ack(D = #dhcp{yiaddr=ClientIP}, StateData) ->
+handle_dhcp_ack(D = #dhcp{yiaddr=ClientIP}, StateData = #state{device = Device}) ->
     case dhcp_util:optsearch(?DHO_DHCP_MESSAGE_TYPE, D) of
 	{value, ?DHCPNAK} ->
             {next_state, dhcp_init, StateData#state{ip=undefined,leasetime=undefined}};
         {value, ?DHCPACK} ->
+            Template = Device#device.template,
             case dhcp_util:optsearch(?DHO_DHCP_LEASE_TIME, D) of
                 {value, Value} ->
                     {_,Bindtime,_} = erlang:now(),
                     NewStateData = StateData#state{ip=ClientIP,leasetime=Value,bindtime=Bindtime},
                     T1 = t1(NewStateData),
-                    (NewStateData#state.bound_fun)(online),
+                    (Template#device_template.linkstate_fun)(Device, online),
                     {next_state, dhcp_bound, NewStateData, T1*1000};
                 false ->
                     error_logger:info_msg("State dhcp_bound timeout indefinite (bootp)~n"),
-                    (StateData#state.bound_fun)(online),
+                    (Template#device_template.linkstate_fun)(Device, online),
                     {next_state, dhcp_bound, StateData#state{ip=ClientIP,leasetime=undefined}}
             end
     end.
@@ -196,8 +200,10 @@ t2(StateData) ->
 %% {stop, Reason, NewState}
 %% @end
 %%--------------------------------------------------------------------
-handle_event({poweroff}, _StateName, StateData = #state{bound_fun=BoundFun}) ->
-    BoundFun(offline),
+handle_event({poweroff}, _StateName, StateData = #state{device=D}) ->
+    T = D#device.template,
+    BoundFun = T#device_template.linkstate_fun,
+    BoundFun(D, offline),
     {next_state, poweroff, StateData};
 handle_event({poweron}, poweroff, StateData) ->
     dhcp_init(StateData);
@@ -279,7 +285,7 @@ code_change(_OldVsn, StateName, State, _Extra) ->
 %%% Utility functions
 %%%===================================================================
 
-send_discover(#state{send_fun=SendFun, device=D}) when is_record(D, device) ->
+send_discover(#state{device=D}) when is_record(D, device) ->
     T = D#device.template,
     Discover = #dhcp{
       op = ?BOOTREQUEST,
@@ -290,9 +296,9 @@ send_discover(#state{send_fun=SendFun, device=D}) when is_record(D, device) ->
                {?DHO_DHCP_PARAMETER_REQUEST_LIST, T#device_template.parameter_request_list},
                {?DHO_VENDOR_ENCAPSULATED_OPTIONS, T#device_template.vendor_options}]
      },
-    SendFun(Discover).
+    (T#device_template.send_packet_fun)(D, Discover).
 
-send_request(#state{send_fun=SendFun, ip=IP, device=D}) ->
+send_request(#state{ip=IP, device=D}) ->
     T = D#device.template,
     Request = #dhcp{
       op = ?BOOTREQUEST,
@@ -304,11 +310,11 @@ send_request(#state{send_fun=SendFun, ip=IP, device=D}) ->
                {?DHO_DHCP_PARAMETER_REQUEST_LIST, T#device_template.parameter_request_list},
                {?DHO_VENDOR_ENCAPSULATED_OPTIONS, T#device_template.vendor_options}]
      },
-    SendFun(Request).
+    (T#device_template.send_packet_fun)(D, Request).
 
-send_renew(#state{send_fun=SendFun, ip=IP, device=D}) ->
+send_renew(#state{ip=IP, device=D}) ->
     T = D#device.template,
-    Request = #dhcp{
+    Renew = #dhcp{
       op = ?BOOTREQUEST,
       chaddr = D#device.mac,
       ciaddr = IP,
@@ -318,4 +324,4 @@ send_renew(#state{send_fun=SendFun, ip=IP, device=D}) ->
                {?DHO_DHCP_PARAMETER_REQUEST_LIST, T#device_template.parameter_request_list},
                {?DHO_VENDOR_ENCAPSULATED_OPTIONS, T#device_template.vendor_options}]
      },
-    SendFun(Request).
+    (T#device_template.send_packet_fun)(D, Renew).
