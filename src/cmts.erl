@@ -46,7 +46,7 @@ start_link(Cmts, GiAddress, DhcpServerIP) ->
     io:format("CMTS start-link ~p ~p ~p ~n", [Cmts, GiAddress, DhcpServerIP]),
     gen_server:start_link({local, Cmts}, ?MODULE,
 			  [Cmts, GiAddress, DhcpServerIP], 
-                          [{debug,[log]}]). %{debug,[trace]}
+                          []). %{debug,[trace]}{debug,[log]}
 
 %% Cable modems call this to have a dhcp packet relayed to the dhcp server
 send_packet(CMTS, Packet, CmId) ->

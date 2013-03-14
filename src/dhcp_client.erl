@@ -54,7 +54,7 @@
 %% @end
 %%--------------------------------------------------------------------
 start_link(N, Device) ->
-    gen_fsm:start_link({local, N}, dhcp_client, [N, Device], [{debug,[trace]}]). %
+    gen_fsm:start_link({local, N}, dhcp_client, [N, Device], []). %{debug,[trace]}
 
 %% send a stop this will end up in "handle_event"
 stop(N)  -> gen_fsm:send_all_state_event(N, {stop}).

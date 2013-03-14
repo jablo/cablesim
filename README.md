@@ -3,14 +3,13 @@ Cable modem and CMTS IP Simulator
 
 Run the demo
 ============
+<pre>
 rebar compile
 cd ebin
 erl 
 application:start(cablesim).
-cm:poweroff(cm1).
-cm:poweron(cm1).
-cm:reset(cm1).
-...
+</pre>
+will simulate 5000 cable modems with mta and cpe booting on a cmts.
 
 Background
 ==========

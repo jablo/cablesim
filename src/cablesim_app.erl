@@ -6,6 +6,8 @@
 %% Application callbacks
 -export([start/2, stop/1, start_cablemodem/2, do_startcm/0]).
 
+-export([mk_cms/4]).
+
 %% ===================================================================
 %% Application callbacks
 %% ===================================================================
@@ -13,8 +15,7 @@
 start(_StartType, _StartArgs) ->
     error_logger:logfile({open, "/tmp/cablesim.log"}),
     X = cablesim_sup:start_link(),
-    do_startcm(),
-    cm:poweron(cm1),
+    simulate(5000),
     X.
 
 stop(_State) ->
@@ -61,3 +62,37 @@ do_startcm() ->
                       dhcp_client = cm1_cpedhcp,
                       template = CPETempl},
     start_cablemodem(CM_Dev, [CPE_Dev,MTA_Dev]).
+
+simulate(N) ->
+    [CMTempl, MTATempl, CPETempl] = device:cpedb(),
+    mk_cms(N, CMTempl, MTATempl, CPETempl).
+
+mk_cms(0, _, _, _) -> ok;
+mk_cms(N, CMTempl, MTATempl, CPETempl) ->
+    CM_id = mk_atom(cm, N),
+    MTA_id = mk_atom(cm, N, mta),
+    CPE_id = mk_atom(cm, N, cpe),
+    CM_dhcp_id = mk_atom(cm, N, dhcp),
+    MTA_dhcp_id = mk_atom(cm, N, mtadhcp),
+    CPE_dhcp_id = mk_atom(cm, N, cpedhcp),
+    A = 3 * N div 200,
+    B = 3 * N rem 200,
+    io:format("Mac-part: ~p ~p ~p~n", [N, A, B]),
+    CM_Dev = #device{server_id = CM_id, upstream_id = cmts, mac = {0,0,0,0,A,B}, 
+                     dhcp_client = CM_dhcp_id,
+                     template = CMTempl},
+    MTA_Dev = #device{server_id = MTA_id, upstream_id = CM_id, mac = {0,0,0,0,A,B+1},
+                      dhcp_client = MTA_dhcp_id,
+                      template = MTATempl},
+    CPE_Dev = #device{server_id = CPE_id, upstream_id = CM_id, mac = {0,0,0,0,A,B+2},
+                      dhcp_client = CPE_dhcp_id,
+                      template = CPETempl},
+    start_cablemodem(CM_Dev, [CPE_Dev,MTA_Dev]),
+    cm:poweron(CM_id),
+    mk_cms(N-1, CMTempl, MTATempl, CPETempl).
+    
+    
+mk_atom(Prefix, N) ->
+   list_to_atom(atom_to_list(Prefix) ++ "_" ++ integer_to_list(N)).
+mk_atom(Prefix, N, Postfix) ->
+   list_to_atom(atom_to_list(Prefix) ++ "_" ++ integer_to_list(N)  ++ "_" ++ atom_to_list(Postfix)).
