@@ -225,8 +225,22 @@ handle_cast({relay_packet, P}, StateData = #state{device = Device}) ->
     cmts:send_packet(Cmts, P, Me),
     {noreply, StateData};
 % handles network packets received from cmts
-handle_cast({receive_packet, P = #dhcp{}}, StateData = #state{device = Device}) ->
-    dhcp_client:receive_packet(Device#device.dhcp_client, P),
+handle_cast({receive_packet, P = #dhcp{chaddr=ChAddr}}, 
+            StateData = #state{device = Device, devices_behind = BehindDevs}) ->
+    % must route to correct module
+    io:format("Deciding on route for ~p ~n possible routes: ~p~n",
+              [P, [Device|BehindDevs]]),
+    lists:foreach(fun (_Dev = #device{dhcp_client=Process, mac=Mac}) ->
+                          io:format("Checking route match ~p for ~p (Proces: ~p)~n", [ChAddr, Mac, Process]),
+                          if Mac =:= ChAddr ->
+                                  io:format("Route match for process ~p mac ~p~n",
+                                            [Process, Mac]),
+                                  dhcp_client:receive_packet(Process, P),
+                                  io:format("Packet ~p sent to ~p~n", [P, Process]);
+                             true -> ok
+                          end
+                  end,
+                  [Device | BehindDevs]),
     {noreply, StateData}.
 
 %%--------------------------------------------------------------------

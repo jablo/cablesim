@@ -154,6 +154,7 @@ dhcp_renewing(timeout, StateData) ->
 
 % implicit dhcp_init state
 dhcp_init(StateData = #state{device=D}) ->
+    io:format("Device: ~p~n", [D]),
     T = D#device.template,
     BoundFun = T#device_template.linkstate_fun,
     BoundFun(D, offline),
