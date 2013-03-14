@@ -2,7 +2,8 @@
 %%% File    : dhcp_client
 %%% Author  : Jacob Lorensen
 %%% Description : Dhcp client state machine
-%%%
+%%% The state machine is very naïve at the moment. Receiving multiple
+%%% DHCP OFFER or DHCP ACK would make it fail.
 %%% Created : 08 March 2013 by Jacob Lorensen <jalor@yousee.dk> 
 %%%-------------------------------------------------------------------
 -module(dhcp_client).
