@@ -131,7 +131,6 @@ binary_to_options(<<Tag, Rest/binary>>, Type, Acc) ->
 		    <<N, Binary:N/binary, T/binary>> = Rest,
 		    binary_to_iplist(Binary);
 		vendor ->
-                    io:format("Vendot encaps...~n"),
 		    <<N, Binary:N/binary, T/binary>> = Rest,
 		    lists:reverse(binary_to_options(Binary, fun (_) -> string end));
 		unknown ->

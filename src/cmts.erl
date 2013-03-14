@@ -10,7 +10,7 @@
 %%% http://askubuntu.com/questions/8250/weird-issue-with-iptables-redirection
 %%%-------------------------------------------------------------------
 -module(cmts).
--compile([debug_info, export_all]).
+%-compile([debug_info, export_all]).
 
 -behaviour(gen_server).
 
@@ -45,7 +45,7 @@
 start_link(Cmts, GiAddress, DhcpServerIP) ->
     gen_server:start_link({local, Cmts}, ?MODULE,
 			  [Cmts, GiAddress, DhcpServerIP], 
-                          [{debug,[trace]}]). %{debug,[trace]}
+                          [{debug,[log]}]). %{debug,[trace]}
 
 %% Cable modems call this to have a dhcp packet relayed to the dhcp server
 send_packet(CMTS, Packet, CmId) ->

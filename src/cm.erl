@@ -21,7 +21,7 @@
 %%% http://askubuntu.com/questions/8250/weird-issue-with-iptables-redirection
 %%%-------------------------------------------------------------------
 -module(cm).
--compile([debug_info, export_all]).
+%-compile([debug_info, export_all]).
 -behaviour(gen_server).
 
 %% public api (from cm)
@@ -53,7 +53,7 @@ start_link(Device) ->
     start_link(Device, []).
 start_link(Device = #device{}, BehindDevs) ->
     gen_server:start_link({local, Device#device.server_id}, ?MODULE,
-			  [Device, BehindDevs], [{debug,[trace]}]). %
+			  [Device, BehindDevs], [{debug,[log]}]). %
 
 stop(CmId) ->
     gen_server:cast(CmId, {stop}).
@@ -116,14 +116,10 @@ init([Device, BehindDevs]) when is_record(Device, device) ->
     T = Device#device.template,
     D2 = (T#device_template.create_fun)(Device),
     % Create dhcp server component on all behind-devices
-    io:format("Creating behind devices ~p~n", [BehindDevs]),
     BehindDevs2 = lists:map(
                     fun (F_D) when is_record(F_D, device) ->
-                            io:format("Going to create ~p~n", [F_D]),
                             F_T = F_D#device.template,
-                            io:format("Template is: ~p~n", [F_T]),
                             F_F = F_T#device_template.create_fun, 
-                            io:format("Create fun is: ~p~n", [F_F]),
                             F_F(F_D)
                     end,
                     BehindDevs),
@@ -228,15 +224,9 @@ handle_cast({relay_packet, P}, StateData = #state{device = Device}) ->
 handle_cast({receive_packet, P = #dhcp{chaddr=ChAddr}}, 
             StateData = #state{device = Device, devices_behind = BehindDevs}) ->
     % must route to correct module
-    io:format("Deciding on route for ~p ~n possible routes: ~p~n",
-              [P, [Device|BehindDevs]]),
     lists:foreach(fun (_Dev = #device{dhcp_client=Process, mac=Mac}) ->
-                          io:format("Checking route match ~p for ~p (Proces: ~p)~n", [ChAddr, Mac, Process]),
                           if Mac =:= ChAddr ->
-                                  io:format("Route match for process ~p mac ~p~n",
-                                            [Process, Mac]),
-                                  dhcp_client:receive_packet(Process, P),
-                                  io:format("Packet ~p sent to ~p~n", [P, Process]);
+                                  dhcp_client:receive_packet(Process, P);
                              true -> ok
                           end
                   end,

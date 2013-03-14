@@ -6,7 +6,7 @@
 %%% Created : 08 March 2013 by Jacob Lorensen <jalor@yousee.dk> 
 %%%-------------------------------------------------------------------
 -module(dhcp_client).
--compile([debug_info, export_all]).
+%-compile([debug_info, export_all]).
 -behaviour(gen_fsm).
 
 %% public api
@@ -154,7 +154,6 @@ dhcp_renewing(timeout, StateData) ->
 
 % implicit dhcp_init state
 dhcp_init(StateData = #state{device=D}) ->
-    io:format("Device: ~p~n", [D]),
     T = D#device.template,
     BoundFun = T#device_template.linkstate_fun,
     BoundFun(D, offline),

@@ -1,6 +1,6 @@
 
 -module(cablesim_sup).
--compile([debug_info, export_all]).
+%-compile([debug_info, export_all]).
 
 -behaviour(supervisor).
 

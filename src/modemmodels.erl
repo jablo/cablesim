@@ -6,7 +6,7 @@
 %%% Created : 08 March 2013 by Jacob Lorensen <jalor@yousee.dk> 
 %%%-------------------------------------------------------------------
 -module(modemmodels).
--compile([debug_info, export_all]).
+%-compile([debug_info, export_all]).
 
 -export([cpedb/0]).
 
@@ -15,10 +15,9 @@
 mk_atom(Prefix, Postfix) ->
     list_to_atom(atom_to_list(Prefix) ++ "_" ++ atom_to_list(Postfix)).
 
-create_std_dhcp_client(D, Postfix) when is_record(D, device) ->
+create_std_dhcp_client(D) when is_record(D, device) ->
                                                 % Create the dhcp_client:
-    io:format("Create device ~p ~n", [D]),
-    DHCP_Ref = mk_atom(D#device.server_id, Postfix),
+    DHCP_Ref = mk_atom(D#device.server_id, dhcp),
     D2 = D#device{dhcp_client = DHCP_Ref},
     dhcp_client:start_link(DHCP_Ref, D2),
     D2.
@@ -26,7 +25,7 @@ create_std_dhcp_client(D, Postfix) when is_record(D, device) ->
 cpedb() ->
     [#device_template
      {id = cg3000_cm,
-      create_fun = fun (D) -> create_std_dhcp_client(D, dhcp) end,
+      create_fun = fun (D) -> create_std_dhcp_client(D) end,
       send_packet_fun = fun (D, P) -> cm:send_packet(D#device.server_id, P) end,
       linkstate_fun = fun (D, B) -> cm:linkstate(D#device.server_id, B) end,
       vendor_class_id = "docsis3.0",
@@ -45,9 +44,8 @@ cpedb() ->
      },
      #device_template
      {id = cg3000_mta,
-      create_fun = fun (D) -> create_std_dhcp_client(D, mta) end,
+      create_fun = fun (D) -> create_std_dhcp_client(D) end,
       send_packet_fun = fun (D, P) -> 
-                                io:format("Sending packet from mta ~p~n", [P]),
                                 cm:relay_packet(D#device.upstream_id, P) 
                         end,
       linkstate_fun = fun (_, _) -> ok end,
@@ -69,8 +67,8 @@ cpedb() ->
      },
      #device_template
      {id = cg3000_cpe,
-      create_fun = fun (D) -> create_std_dhcp_client(D, cpe) end,
-      send_packet_fun = fun (D, P) -> cm:relay_packet(D#device.server_id, P) end,
+      create_fun = fun (D) -> create_std_dhcp_client(D) end,
+      send_packet_fun = fun (D, P) -> cm:relay_packet(D#device.upstream_id, P) end,
       linkstate_fun = fun (_, _) -> ok end,
       vendor_class_id = "",
       vendor_options = [],
