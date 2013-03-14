@@ -21,8 +21,7 @@
           dhcp_module = dhcp_client,  % dhcp state machine implementation (module name)
           tftp_module = undefined,    % tftp implementing state machine (module name)
           tod_module = undefined,     % tod protocol implementation (module name)
-          % Funs to create a device instance (sub processes) and send packet / communicate link state
-          create_fun,               % fun to create the dhcp_module, tftp_module, tod_module
+          % Callout funs to send packet / communicate link state
           send_packet_fun,
           linkstate_fun,
           % DHCP signature

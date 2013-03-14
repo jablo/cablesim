@@ -113,18 +113,8 @@ disconnect_cmts(CmId) ->
 %%--------------------------------------------------------------------
 init([Device, BehindDevs]) when is_record(Device, device) ->
     error_logger:info_msg("Starting Cable Modem ~p~n", [Device#device.server_id]),
-    T = Device#device.template,
-    D2 = (T#device_template.create_fun)(Device),
-    % Create dhcp server component on all behind-devices
-    BehindDevs2 = lists:map(
-                    fun (F_D) when is_record(F_D, device) ->
-                            F_T = F_D#device.template,
-                            F_F = F_T#device_template.create_fun, 
-                            F_F(F_D)
-                    end,
-                    BehindDevs),
-    {ok, #state{device = D2,
-                devices_behind = BehindDevs2,
+    {ok, #state{device = Device,
+                devices_behind = BehindDevs,
                 linkstate=offline}}.
 
 %%--------------------------------------------------------------------
