@@ -53,8 +53,8 @@ send_packet(CMTS, Packet, CmId) ->
     gen_server:cast(CMTS, {Packet, CmId}).
 
 %% Cable modem call this to disconnect from the cmts
-disconnect(Cmts, CmId) ->
-    gen_server:cast(Cmts, {disconnect, CmId}).
+disconnect(Cmts, Mac) ->
+    gen_server:cast(Cmts, {disconnect, Mac}).
 
 %% Cable modems can call this to establish connection explicitly
 connect(_Cmts, _CmId) ->
@@ -126,9 +126,9 @@ handle_cast({reboot}, State) ->
     dict:map (fun (_,V) -> cm:reset(V) end, State#state.cms),
     {noreply, State};
 % External event: disconnect a cable modem
-handle_cast({disconnect, CmId}, State) ->
-    error_logger:info_msg("Disconnecting ~p~n", [CmId]),
-    {noreply, State#state{cms=dict:erase(CmId, State#state.cms)}};
+handle_cast({disconnect, Mac}, State) ->
+    error_logger:info_msg("Disconnecting ~p~n", [Mac]),
+    {noreply, State#state{cms=dict:erase(Mac, State#state.cms)}};
 % External event: forward a dhcp packet from an attached cable modem
 handle_cast({DhcpPacket = #dhcp{}, CmId}, State) ->
     Socket = State#state.socket,
