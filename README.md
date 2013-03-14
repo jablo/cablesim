@@ -34,13 +34,14 @@ Needless to say, a lot of features are missing. In somewhat prioritized order my
 
 - [2013-03-12 DONE] Add device "signatures" (ie. option 43 etc.) so we can mimic the DHCP client packets sent
   by the different manufacturers' devices.
-- [2013-03-14 DONE] Make it possible to have different DHCP, TFTP, ToD etc. protocol modules to simulate 
-  different device behaviours, even faulty devices.
+- [2013-03-14 DONE - dhcp only] Make it possible to have different DHCP, TFTP, ToD etc. protocol modules
+   to simulate different device behaviours, even faulty devices.
 - [2013-03-14 DONE - dhcp only] Make it possible to build a multifunction cable modem device by combining
    - Cable modem DHCP + TFTP + ToD simulator
    - DHCP + TFTP simulator for an embedded MTA or SIP device
    - DHCP simulator for an embedded CPE device (router)
-- Write TFTP and ToD state machine modules, each with a "fail" and "complete" call-outs
+- Write TFTP and ToD state machine modules, so a IP complete cable modem with embedded mta/cpe can
+  be emulated.
 - Combine the DHCP, TFTP and ToD modules into a much more complete cable modem simulator.
 
 Ideas boiling up:
@@ -49,8 +50,6 @@ Ideas boiling up:
 - A subscriber behaviour simulation component, ie code that simulates different 
   customer behaviour: how often is the modem reset, poweroff, poweron, at what time 
   schedules etc.
-- Have a notion of simulated time vs. real time (ie. scale down the time, so 24hour cycle 
-  is 1hour real time).
 - Feed back to graphite or similar to get performance graphs
 - Configuration - some way of describing and executing different scenarios
 
