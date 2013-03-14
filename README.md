@@ -1,7 +1,5 @@
-cablesim
-----------
-
-Cable modem / CMTS ip simulation
+Cable modem and CMTS IP Simulator
+---------------------------------
 
 Run the demo
 ============
