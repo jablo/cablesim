@@ -3,6 +3,19 @@ cablesim
 
 Cable modem / CMTS ip simulation
 
+Run the demo
+------------
+rebar compile
+cd ebin
+erl 
+application:start(cablesim).
+cm:poweroff(cm1).
+cm:poweron(cm1).
+cm:reset(cm1).
+...
+
+Background
+----------
 I work with cable modem provisioning systems. I often have a need to test the 
 provisioning systems. It takes a lot of time to find, attach, get online etc.
 a test cable modem - let alone the time it takes to "clean up" in the 
