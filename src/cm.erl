@@ -96,7 +96,7 @@ reset(N) ->
 connect_cmts(CmId, CmtsId) ->
     gen_server:cast(CmId, {connect, CmtsId}).
 
-%% Connect to a (new) cmts
+%% Disconnect from a (new) cmts
 disconnect_cmts(CmId) ->
     gen_server:cast(CmId, {disconnect}).
 
@@ -144,7 +144,7 @@ handle_cast({poweroff}, StateData = #state{device = Device, devices_behind = Dev
     dhcp_client:poweroff(Device#device.dhcp_client),
     lists:foreach(fun (D) -> dhcp_client:poweroff(D#device.dhcp_client) end,
                   DevBehind),
-    cmts:disconnect(Device#device.upstream_id),
+    cmts:disconnect(Device#device.upstream_id, Device#device.mac),
     {noreply, StateData};
 % External event: tell the cable modem to power off
 handle_cast({reset}, StateData = #state{device = Device, devices_behind = DevBehind}) ->
@@ -169,7 +169,7 @@ handle_cast({connect, CmtsId}, StateData = #state{device = Device, devices_behin
        CmtsId =:= Device#device.upstream_id ->
             {noreply, StateData};
        true ->
-            cmts:disconnect(Device#device.upstream_id, Device#device.server_id),
+            cmts:disconnect(Device#device.upstream_id, Device#device.mac),
             dhcp_client:reset(Device#device.dhcp_client),
             lists:foreach(fun (D) -> dhcp_client:reset(D#device.dhcp_client) end,
                           DevBehind),
@@ -178,7 +178,7 @@ handle_cast({connect, CmtsId}, StateData = #state{device = Device, devices_behin
     end;
 % External event: tell the cable modem we're not connected to a cmts
 handle_cast({disconnect}, StateData = #state{device = Device, devices_behind = DevBehind}) ->
-    cmts:disconnect(Device#device.upstream_id, Device#device.server_id),
+    cmts:disconnect(Device#device.upstream_id, Device#device.mac),
     dhcp_client:reset(Device#device.dhcp_client),
     lists:foreach(fun (D) -> dhcp_client:reset(D#device.dhcp_client) end,
                   DevBehind),
