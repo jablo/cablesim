@@ -25,7 +25,7 @@
           send_packet_fun,
           linkstate_fun,
           % DHCP signature
-          vendor_options = [],        % dhcp option43 options
+          vendor_options_fun = fun (#device{}) -> [] end,
           vendor_class_id,            % dhcp option60 vendor class string
           client_id_fun = fun (#device{}) -> [] end,
           client_identifier = [],     % dhcp option61 client identifier

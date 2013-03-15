@@ -15,7 +15,7 @@
 start(_StartType, _StartArgs) ->
     error_logger:logfile({open, "/tmp/cablesim.log"}),
     X = cablesim_sup:start_link(),
-    simulate(5000),
+    simulate(1),
     X.
 
 stop(_State) ->
@@ -93,6 +93,6 @@ mk_cms(N, CMTempl, MTATempl, CPETempl) ->
     
     
 mk_atom(Prefix, N) ->
-   list_to_atom(atom_to_list(Prefix) ++ "_" ++ integer_to_list(N)).
+   list_to_atom(atom_to_list(Prefix) ++ integer_to_list(N)).
 mk_atom(Prefix, N, Postfix) ->
-   list_to_atom(atom_to_list(Prefix) ++ "_" ++ integer_to_list(N)  ++ "_" ++ atom_to_list(Postfix)).
+   list_to_atom(atom_to_list(Prefix) ++ integer_to_list(N)  ++ "_" ++ atom_to_list(Postfix)).

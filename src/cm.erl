@@ -24,7 +24,7 @@
 %-compile([debug_info, export_all]).
 -behaviour(gen_server).
 
-%% public api (from cm)
+%% public api
 -export([stop/1, start_link/1, start_link/2, 
          send_packet/2, relay_packet/2, receive_packet/2, linkstate/2,
          poweron/1, poweroff/1, reset/1, 
@@ -152,11 +152,9 @@ handle_cast({reset}, StateData = #state{device = Device, devices_behind = DevBeh
     lists:foreach(fun (D) -> dhcp_client:reset(D#device.dhcp_client) end,
                   DevBehind),
     {noreply, StateData};
-% External event: tell the cable modem to reset
-handle_cast({poweron}, StateData = #state{device = Device, devices_behind = DevBehind}) ->
+% External event: tell the cable modem to power on
+handle_cast({poweron}, StateData = #state{device = Device}) ->
     dhcp_client:poweron(Device#device.dhcp_client),
-    lists:foreach(fun (D) -> dhcp_client:poweron(D#device.dhcp_client) end,
-                  DevBehind),
     {noreply, StateData};
 % External event: tell the cable modem to (re-)connect to a (different) cmts
 handle_cast({connect, CmtsId}, StateData = #state{device = Device, devices_behind = DevBehind}) ->
@@ -186,34 +184,45 @@ handle_cast({disconnect}, StateData = #state{device = Device, devices_behind = D
     {noreply, StateData#state{device = Device2}};
 % handles DHCP client link status feedback
 handle_cast({linkstate, L}, StateData) ->
-    {noreply, StateData#state{linkstate=L}};
+    handle_linkstate(L, StateData);
 % handles cable modem client network communication
-handle_cast({send_packet, _P}, StateData = #state{device = Device}) 
-  when Device#device.upstream_id =:= undefined ->
-    dhcp_client:poweroff(Device#device.dhcp_client),
-    {noreply, StateData};
-handle_cast({send_packet, P}, StateData = #state{device = Device}) ->
-    Cmts = Device#device.upstream_id,
-    Me = Device#device.server_id,
-    cmts:send_packet(Cmts, P, Me),
-    {noreply, StateData};
+handle_cast({send_packet, P}, StateData = #state{}) ->
+    handle_send_packet(P, StateData);
 % handles embedded device (mta, cpe) network communication
-handle_cast({relay_packet, _}, StateData = #state{device = Device})
-  when Device#device.upstream_id =:= undefined ->
-    {noreply, StateData};
-handle_cast({relay_packet, _}, StateData = #state{linkstate=offline}) ->
-    {noreply, StateData};
-handle_cast({relay_packet, P}, StateData = #state{device = Device}) ->
-    Cmts = Device#device.upstream_id,
-    Me = Device#device.server_id,
-    error_logger:info_msg("Relaying not implemented correctly yet, opt82 missing from dhcp packets;"),
-    % replace, add option-82 to dhcp packets; leave others alone
-    cmts:send_packet(Cmts, P, Me),
-    {noreply, StateData};
+handle_cast({relay_packet, P}, StateData = #state{}) ->
+    handle_relay_packet(P, StateData);
 % handles network packets received from cmts
-handle_cast({receive_packet, P = #dhcp{chaddr=ChAddr}}, 
-            StateData = #state{device = Device, devices_behind = BehindDevs}) ->
-    % must route to correct module
+handle_cast({receive_packet, P}, StateData) ->
+    handle_receive_packet(P, StateData).
+
+%%
+%% Handle linkstate changes by forwarding the state change to child processes
+%%
+handle_linkstate(offline, StateData = #state{linkstate=Lold}) ->
+    case Lold of
+        offline ->
+            {noreply, StateData};
+        online ->
+            lists:foreach(fun (D) -> dhcp_client:poweroff(D#device.dhcp_client) end,
+                          StateData#state.devices_behind),
+            {noreply, StateData#state{linkstate=offline}}
+    end;            
+handle_linkstate(online, StateData = #state{linkstate=Lold}) ->
+    case Lold of
+        online ->
+            {noreply, StateData};
+        offline ->
+            lists:foreach(fun (D) -> dhcp_client:poweron(D#device.dhcp_client) end,
+                          StateData#state.devices_behind),
+            {noreply, StateData#state{linkstate=online}}
+    end.
+
+%%
+%% route packet received to correct module
+%% perform any necessary packet translation 
+%%
+handle_receive_packet(P = #dhcp{chaddr=ChAddr}, 
+                      StateData = #state{device = Device, devices_behind = BehindDevs}) ->
     lists:foreach(fun (_Dev = #device{dhcp_client=Process, mac=Mac}) ->
                           if Mac =:= ChAddr ->
                                   dhcp_client:receive_packet(Process, P);
@@ -222,6 +231,41 @@ handle_cast({receive_packet, P = #dhcp{chaddr=ChAddr}},
                   end,
                   [Device | BehindDevs]),
     {noreply, StateData}.
+
+%%
+%% send a packet from the cable modem to upstream cmts
+%%
+handle_send_packet(_P, StateData = #state{device = Device}) 
+  when Device#device.upstream_id =:= undefined ->
+    dhcp_client:poweroff(Device#device.dhcp_client),
+    {noreply, StateData};
+handle_send_packet(P = #dhcp{options = Options}, StateData = #state{device = Device}) ->
+    Cmts = Device#device.upstream_id,
+    Me = Device#device.server_id,
+    Op2 = Options ++ 
+        [{?DHO_DHCP_AGENT_OPTIONS, [16#02, 16#06 | tuple_to_list(Device#device.mac)]}],
+    cmts:send_packet(Cmts, P#dhcp{options = Op2}, Me),
+    {noreply, StateData}.
+
+%%
+%% relay a network packet from a device behind the cable modem to the upstream cmts
+%%
+handle_relay_packet(_, StateData = #state{device = Device})
+  when Device#device.upstream_id =:= undefined ->
+    {noreply, StateData};
+handle_relay_packet(_, StateData = #state{linkstate=offline}) ->
+    {noreply, StateData};
+handle_relay_packet(P = #dhcp{options = Options}, StateData = #state{device = Device}) ->
+    Cmts = Device#device.upstream_id,
+    Me = Device#device.server_id,
+    % replace, add option-82 to dhcp packets; leave others alone
+    Op2 = Options ++ 
+        [{?DHO_DHCP_AGENT_OPTIONS, [16#01,16#04,16#00,16#04,16#07,16#7a, 
+                                    16#02, 16#06 | tuple_to_list(Device#device.mac)]}],
+    cmts:send_packet(Cmts, P#dhcp{options = Op2}, Me),
+    {noreply, StateData}.
+
+% CM opt82: relay-agent-remote-id=02:06:30:46:9a:7a:36:0c
 
 %%--------------------------------------------------------------------
 %% Function: terminate(Reason, State) -> void()
