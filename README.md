@@ -1,18 +1,18 @@
 Cable modem and CMTS IP Simulator
----------------------------------
+=================================
 
 Run the demo
-============
+-------------
 <pre>
 rebar compile
 cd ebin
 erl 
 application:start(cablesim).
 </pre>
-will simulate 5000 cable modems with mta and cpe booting on a cmts.
+will simulate 1 cable modem with mta and cpe booting on a cmts.
 
 Background
-==========
+----------
 I work with cable modem provisioning systems. I often have a need to test the 
 provisioning systems. It takes a lot of time to find, attach, get online etc.
 a test cable modem - let alone the time it takes to "clean up" in the 
@@ -50,9 +50,8 @@ Needless to say, a lot of features are missing. In somewhat prioritized order my
    - Cable modem DHCP + TFTP + ToD simulator
    - DHCP + TFTP simulator for an embedded MTA or SIP device
    - DHCP simulator for an embedded CPE device (router)
-- Write TFTP and ToD state machine modules, so a IP complete cable modem with embedded mta/cpe can
+- Write TFTP and ToD state machine modules, so an IP complete cable modem with embedded mta/cpe can
   be emulated.
-- Combine the DHCP, TFTP and ToD modules into a much more complete cable modem simulator.
 
 Ideas boiling up:
 - On-demand service: ReSTful web service interface to create a device on-demand and 
@@ -67,6 +66,7 @@ Ideas boiling up:
 <jalor@yousee.dk>
 
 Various links:
+--------------
 - http://www.tcpipguide.com/free/t_DHCPGeneralOperationandClientFiniteStateMachine.htm
 - http://www.erlang.org/doc/reference_manual/records.html
 - http://www.erlang.org/doc/design_principles/fsm.html
