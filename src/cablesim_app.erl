@@ -1,3 +1,7 @@
+%% @author Jacob Lorensen
+%% @copyright Jacob Lorensen 2013
+%% @doc Cable modem simulation application
+%% @end
 -module(cablesim_app).
 %-compile([debug_info, export_all]).
 -behaviour(application).
@@ -15,7 +19,7 @@
 %% @doc
 %% Start the cablesim application. Starts a cablesim supervisor, and
 %% a some cable modem simulation processes.
-%% @spec start(_, _) -> {ok, Pid} | 
+%% @spec start(StartType, StartArgs) -> {ok, Pid} 
 %% @end
 start(_StartType, _StartArgs) ->
     error_logger:logfile({open, "/tmp/cablesim.log"}),
@@ -100,7 +104,7 @@ start_tftp(Device) ->
 %% the cable modem, it's dhcp client, tftp client, tod client
 %% and - recursively - create the same for any device running 
 %% behind the cable modem.
-%% @spec start_cablemodem(Device, BehindDevs) -> ok | ?
+%% @spec start_cablemodem(Device, BehindDevs) -> ok 
 %% @end
 start_cablemodem(Device, BehindDevs) ->
     start_cm(Device, BehindDevs),
@@ -133,14 +137,12 @@ mk_atom(Prefix, N, Postfix) ->
 
 %% @doc
 %% Make a MAC address 
-%% @spec mk_mac({A,B,C,D}, N} -> {A,B,C,D,E,F}.
 %% @end
 mk_mac({A,B,C,D}, N) -> {A,B,C,D,N div 200, N rem 200}.
 
 %% @doc
 %% Create and start N cable modems with MTA and CPE behind it 
 %% based on specified CM, MTA and CPE device templates
-%% @spec _ -> ok.
 %% @end
 mk_cms(0, _, _, _) -> ok;
 mk_cms(N, CMTempl, MTATempl, CPETempl) ->
@@ -154,7 +156,7 @@ mk_cms(N, CMTempl, MTATempl, CPETempl) ->
 %% @doc
 %% Start a simulation of a number of CG300 cable modems with
 %% built in MTA and CPE
-%% @spec N -> ok.
+%% @spec simulate(N) -> ok
 %% @end
 simulate(N) ->
     [CMT, MTAT, CPET] = device:cpedb(),
