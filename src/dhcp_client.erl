@@ -29,25 +29,21 @@
 %% state data
 %%
 -record(state, {
+          device,                % device structure describing this dhcp client
           ip="",                 % IP address obtained via the dhcp protocol
           leasetime=0,           % lease time obtained via the dhcp protocol
           bindtime=0,            % the time we received the lease
-          device,                % device structure describing this dhcp client
           retransmit_count=0     % for retransmitting states
          }).
 -define(RETRANSMIT_TIMEOUT, 5000).
 -define(RETRANSMIT_COUNT_MAX, 12).
 -define(RENEW_TIMEOUT, 30000).
 
-%%--------------------------------------------------------------------
 %% @doc
-%% Creates a gen_fsm process which calls Module:init/1 to
-%% initialize. To ensure a synchronized start-up procedure, this
-%% function does not return until Module:init/1 has returned.
+%% Create a dhcp_client instance
 %%
 %% @spec start_link(N, Device) -> {ok, Pid} | ignore | {error, Error}
 %% @end
-%%--------------------------------------------------------------------
 start_link(N, Device) ->
     gen_fsm:start_link({local, N}, dhcp_client, [N, Device], [{debug,[]}]). %{debug,[trace]}
 
@@ -311,7 +307,7 @@ code_change(_OldVsn, StateName, State, _Extra) ->
 %%% Utility functions
 %%%===================================================================
 
-send_discover(#state{device=D}) when is_record(D, device) ->
+send_discover(#state{device=D}) ->
     T = D#device.template,
     Discover = #dhcp{
       op = ?BOOTREQUEST,

@@ -12,9 +12,6 @@
         fmt_hostname/1]).
 -include("dhcp.hrl").
 
-%is_broadcast(D) when is_record(D, dhcp) ->
-%    (D#dhcp.flags bsr 15) == 1.
-
 optsearch(Option, D) when is_record(D, dhcp) ->
     case lists:keysearch(Option, 1, D#dhcp.options) of
 	{value, {Option, Value}} ->
