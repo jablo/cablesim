@@ -63,6 +63,7 @@ Ideas boiling up:
   customer behaviour: how often is the modem reset, poweroff, poweron, at what time 
   schedules etc.
 - Feed back to graphite or similar to get performance graphs
+- Add implementation of DHCPv6 client so we can do experiments with IPv6
 - Configuration - some way of describing and executing different scenarios
 
 /Jacob Lorensen

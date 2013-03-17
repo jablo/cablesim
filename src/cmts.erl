@@ -144,7 +144,6 @@ handle_cast({DhcpPacket = #dhcp{}, CmId}, State) ->
     {IP, Port} = get_dest(DhcpPacket, State),
     D = DhcpPacket#dhcp{giaddr=State#state.giaddress},
     Mac = DhcpPacket#dhcp.chaddr,
-    %error_logger:info_msg("Relaying DHCP from ~p ~s~n", [CmId, fmt_clientid(D)]),
     CableModems2 = dict:store(Mac, CmId, State#state.cms),
     State2 = State#state{cms=CableModems2},
     gen_udp:send(Socket, IP, Port, dhcp_lib:encode(D)),
