@@ -9,7 +9,10 @@ cd ebin
 erl 
 application:start(cablesim).
 </pre>
-will simulate 1 cable modem with mta and cpe booting on a cmts.
+will simulate 2 CMTSes each with 1 cable modem attached, having  mta and cpe booting.
+Currently Dhcp server IP address, and CMTS gi-addresses are hard-coded to 192.168.56.102
+and .103. You will have to add network interfaces and ip addresses to your computer's
+configuration manually before starting the demo.
 
 Background
 ----------
