@@ -45,10 +45,9 @@
 %%====================================================================
 %% API
 %%====================================================================
-%%--------------------------------------------------------------------
-%% Function: start_link() -> {ok,Pid} | ignore | {error,Error}
-%% Description: Starts the server
-%%--------------------------------------------------------------------
+%% @doc Starts the server
+%% @spec start_link(Device, BehindDevs) -> {ok,Pid} | ignore | {error,Error}
+%% @end
 start_link(Device) ->
     start_link(Device, []).
 start_link(Device = #device{}, BehindDevs) ->
@@ -58,45 +57,72 @@ start_link(Device = #device{}, BehindDevs) ->
 stop(CmId) ->
     gen_server:cast(CmId, {stop}).
 
+%% @doc
+%% Callback for the cable modem's dhcp_client to signal when IP link state
+%% to the cmts is up/down.
+%% @see relay_packet
+%% @end
 linkstate(CmId, online) ->
     gen_server:cast(CmId, {linkstate, online});
 linkstate(CmId, offline) ->
     gen_server:cast(CmId, {linkstate, offline}).
 
+%% @doc
 %% Cable modem native components modems call this to have a network packet 
-%% relayed to the cmts (and further onwards) to the dhcp server
+%% sent to the cmts (and further onwards) to the dhcp server. Send_packet
+%% does not do any packet rewrites, whereas relay_packet does option-82 for
+%% dhcp packets
+%% @see relay_packet
+%% @end
 send_packet(CmId, Packet) ->
     gen_server:cast(CmId, {send_packet, Packet}).
 
+%% @doc
 %% Devices behind the cable modem (mta, cpe) call this to have a network packet 
-%% relayed to the cmts (and further onwards) to the dhcp server
+%% relayed to the cmts (and further onwards) to the dhcp server. relay_packet
+%% appends dhcp option 82 for outgoing dhcp packets
+%% @see send_packet
+%% @end
 relay_packet(CmId, Packet) ->
     gen_server:cast(CmId, {relay_packet, Packet}).
 
-%% Cmts calls this to deliver a network packet to the cable modem
+
+%% @doc
+%% Cmts process calls this to deliver a network packet to the cable modem
 %% Packet types: DHCP, TFTP, ToD
+%% @end
 receive_packet(CmId, Packet) ->
     gen_server:cast(CmId, {receive_packet, Packet}).
 
 %%% External events (human)
 
-%% power on a modem
+%% @doc
+%% External cable modem control - power on a modem
+%% @end
 poweron(N) ->
     gen_server:cast(N, {poweron}).
 
-%% power off a modem
+%% @doc
+%% External cable modem control - power off a modem
+%% @end
 poweroff(N) ->
     gen_server:cast(N, {poweroff}).
 
-%% reset a modem
+%% @doc
+%% External cable modem control - reset a modem
+%% @end
 reset(N) ->
     gen_server:cast(N, {reset}).
 
-%% Connect to a (new) cmts
+%% @doc
+%% External cable modem control - Connect to a (new) cmts
+%% @end
 connect_cmts(CmId, CmtsId) ->
     gen_server:cast(CmId, {connect, CmtsId}).
 
-%% Disconnect from a (new) cmts
+%% @doc
+%% External cable modem control - disconnect from a (new) cmts
+%% @end
 disconnect_cmts(CmId) ->
     gen_server:cast(CmId, {disconnect}).
 
@@ -109,13 +135,18 @@ disconnect_cmts(CmId) ->
 %%                         {ok, State, Timeout} |
 %%                         ignore               |
 %%                         {stop, Reason}
-%% Description: Initiates the server
+%% Description: Initiates the cable modem server
 %%--------------------------------------------------------------------
-init([Device, BehindDevs]) when is_record(Device, device) ->
-    error_logger:info_msg("Starting Cable Modem ~p~n", [Device#device.server_id]),
-    {ok, #state{device = Device,
-                devices_behind = BehindDevs,
-                linkstate=offline}}.
+init([Device, BehindDevs | OptionalState]) when is_record(Device, device) ->
+    error_logger:info_msg("Starting Cable Modem ~p ~p~n", 
+                          [Device#device.server_id, Device#device.mac]),
+    InitialState = {ok, #state{device = Device,
+                               devices_behind = BehindDevs,
+                               linkstate=offline}},
+    case OptionalState of
+        [] -> InitialState;
+        [sdfjhdsf] -> handle_poweron_reset(InitialState)
+    end.
 
 %%--------------------------------------------------------------------
 %% Function: %% handle_call(Request, From, State) -> {reply, Reply, State} |
@@ -265,7 +296,23 @@ handle_relay_packet(P = #dhcp{options = Options}, StateData = #state{device = De
     cmts:send_packet(Cmts, P#dhcp{options = Op2}, Me),
     {noreply, StateData}.
 
-% CM opt82: relay-agent-remote-id=02:06:30:46:9a:7a:36:0c
+%% @doc Handle poweron-reset. This works equally well for initially starting
+%% the cable modem and for re-starting the cable modem in case of process
+%% failure. We can call reset first, then poweron because poweron is ignored if
+%% the dhcp clients are already powered on, while reset if ignored if
+%% the dhcp clients are powered off. Further, initially the processes don't exist
+%% and thus these messages are actually ignored.
+%% @end
+handle_poweron_reset(StateData = #state{device = Device, devices_behind = DevBehind}) ->
+    cm:poweron(Device#device.server_id),
+    dhcp_client:reset(Device#device.dhcp_client),
+    dhcp_client:poweron(Device#device.dhcp_client),
+    lists:foreach(fun (D) -> dhcp_client:reset(D#device.dhcp_client) end,
+                  DevBehind),
+    lists:foreach(fun (D) -> dhcp_client:poweron(D#device.dhcp_client) end,
+                  DevBehind),
+    StateData.
+    
 
 %%--------------------------------------------------------------------
 %% Function: terminate(Reason, State) -> void()

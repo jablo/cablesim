@@ -30,7 +30,6 @@
 -define(DHCP_SERVER_PORT, 67).
 -define(DHCP_CLIENT_PORT, 68).
 -define(DHCP_RELAY_PORT, 67).
--define(DHCP_SERVER_IP, {192,168,56,105}).
 
 -record(state, {socket, cmts, dhcp_serverip, giaddress, cms}).
 
@@ -48,23 +47,33 @@ start_link(Cmts, GiAddress, DhcpServerIP) ->
 			  [Cmts, GiAddress, DhcpServerIP], 
                           []). %{debug,[trace]}{debug,[log]}
 
+%% @doc
 %% Cable modems call this to have a dhcp packet relayed to the dhcp server
+%% @end
 send_packet(CMTS, Packet, CmId) ->
     gen_server:cast(CMTS, {Packet, CmId}).
 
+%% @doc
 %% Cable modem call this to disconnect from the cmts
+%% @end
 disconnect(Cmts, Mac) ->
     gen_server:cast(Cmts, {disconnect, Mac}).
 
+%% @doc
 %% Cable modems can call this to establish connection explicitly
+%% @end
 connect(_Cmts, _CmId) ->
     ok. % noop, since sending packets does implicit connect
 
+%% @doc
 %% reset cmts (ie, reset all connected cable modems)
+%% @end
 reboot(Cmts) ->
     gen_server:cast(Cmts, {reboot}).
 
-%% 
+%% @doc
+%% Stop the cmts server
+%% @end
 stop(CMTS) ->
     gen_server:cast(CMTS, stop).
 
@@ -73,14 +82,14 @@ stop(CMTS) ->
 %%====================================================================
 
 %%--------------------------------------------------------------------
-%% Function: init(Args) -> {ok, State} |
-%%                         {ok, State, Timeout} |
-%%                         ignore               |
-%%                         {stop, Reason}
-%% Description: Initiates the server
+%% @doc Initialize an instance of the cmts server process
+%% @spec init(Args) -> {ok, State} |
+%%                     {ok, State, Timeout} |
+%%                     ignore               |
+%%                     {stop, Reason}
 %%--------------------------------------------------------------------
 init([ServerId, GiAddress, DhcpServerIP]) ->
-    Options = get_sockopt(),
+    Options = get_sockopt(GiAddress),
     case gen_udp:open(?DHCP_RELAY_PORT, Options) of
 	{ok, Socket} ->
 	    error_logger:info_msg("Starting CMTS ~p~n", [ServerId]),
@@ -132,7 +141,7 @@ handle_cast({disconnect, Mac}, State) ->
 % External event: forward a dhcp packet from an attached cable modem
 handle_cast({DhcpPacket = #dhcp{}, CmId}, State) ->
     Socket = State#state.socket,
-    {IP, Port} = get_dest(DhcpPacket),
+    {IP, Port} = get_dest(DhcpPacket, State),
     D = DhcpPacket#dhcp{giaddr=State#state.giaddress},
     Mac = DhcpPacket#dhcp.chaddr,
     %error_logger:info_msg("Relaying DHCP from ~p ~s~n", [CmId, fmt_clientid(D)]),
@@ -193,8 +202,8 @@ handle_dhcp(_DHCPPACKET_TYPE, D = #dhcp{chaddr=Mac}, State) ->
     cm:receive_packet(CMID, D),
     {noreply, State}.
 
-get_dest(D) when is_record(D, dhcp) ->
-    {?DHCP_SERVER_IP, ?DHCP_SERVER_PORT}.
+get_dest(D, #state{dhcp_serverip=DhcpIp}) when is_record(D, dhcp) ->
+    {DhcpIp, ?DHCP_SERVER_PORT}.
 
-get_sockopt() ->
-    [binary, {broadcast, true}].
+get_sockopt(IP) ->
+    [binary, {broadcast, true}, {ip, IP}].
