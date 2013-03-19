@@ -46,6 +46,7 @@ all my first Erlang program. It is a very draft first version. Currently complet
 - Combined device simulation, of a cable-modem with built in MTA and Router.
 
 Ideas boiling up:
+- Add handling of more than one DHCP server
 - Add minimal interpretation of the cable modem config file so the simulation can react
   eg. on MTA enable/disable, og report some configured values like uplink/downlink speeds.
 - On-demand service: ReSTful web service interface to create a device on-demand and 
