@@ -52,7 +52,7 @@ start_link(Device) ->
     start_link(Device, []).
 start_link(Device = #device{}, BehindDevs) ->
     gen_server:start_link({local, Device#device.server_id}, ?MODULE,
-			  [Device, BehindDevs], [{debug,[log]}]). %
+			  [Device, BehindDevs], [{debug,[]}]). %
 
 stop(CmId) ->
     gen_server:cast(CmId, {stop}).

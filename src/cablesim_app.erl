@@ -43,7 +43,7 @@ mk_cms(N, NMin, Cmts, CMTempl, MTATempl, CPETempl) ->
     CPE = device:mk_device(
             device:mk_pname(cm, N, cpe), CM#device.server_id,
             device:mk_mac({0,0,0}, 3*N+2), CPETempl),
-    device:start_cablemodem(CM, [CPE]),
+    device:start_cablemodem(CM, [MTA, CPE]),
     cm:poweron(device:mk_pname(cm, N)),
     mk_cms(N-1, NMin, Cmts, CMTempl, MTATempl, CPETempl).
 

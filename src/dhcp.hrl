@@ -105,6 +105,8 @@
 -define(DHO_NWIP_SUBOPTIONS,             63).
 -define(DHO_NIS_PLUS_DOMAIN,             64).
 -define(DHO_NIS_PLUS_SERVERS,            65).
+-define(DHO_BOOT_SERVER,                 66).
+-define(DHO_BOOT_FILE,                   67).
 -define(DHO_MOBILE_IP_HOME_AGENTS,       68).
 -define(DHO_SMTP_SERVERS,                69).
 -define(DHO_POP3_SERVERS,                70).

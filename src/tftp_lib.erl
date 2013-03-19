@@ -8,7 +8,7 @@
 -module(tftp_lib).
 
 %% API
--export([decode/1, encode/1, t1/0]).
+-export([decode/1, encode/1]).
 
 -import(lists, [keymember/3, keysearch/3, keyreplace/4]).
 
@@ -57,15 +57,4 @@ encode_test_() ->
     P = #tftp_request{opcode=?OC_RRQ, filename="config.cfg", mode="binary"},
     R = << ?OC_RRQ,  (list_to_binary("config.cfg"))/binary, ?C_EOS, 
                      (list_to_binary("binary"))/binary, ?C_EOS >>,
-    io:format("HEJ FROM TEST P:~p ~n R:~p ~n", [P, R]),
     [?_assert(encode(P) =:= R)].
-
-
-t1() ->
-    P = #tftp_request{opcode=?OC_RRQ, filename="config.cfg", mode="binary"},
-    R = << ?OC_RRQ:16,  (list_to_binary("config.cfg"))/binary, ?C_EOS:8, 
-                     (list_to_binary("binary"))/binary, ?C_EOS:8 >>,
-    io:format("HEJ FROM TEST P:~p ~n R:~p ~n", [P, R]),
-    E = encode(P),
-    io:format("Encoded: ~p~n", [encode(P)]),
-    E.

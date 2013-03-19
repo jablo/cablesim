@@ -74,7 +74,7 @@ set_standby(N) ->
 %% receive a data packet from the network (cmts/cable modem acts as proxy).
 %% @end
 receive_packet(N, PACKET) ->
-    gen_fsm:send_event(N, {receive_packet, PACKET}).
+    gen_fsm:send_event(N, {packet, PACKET}).
 
 %%%===================================================================
 %%% gen_fsm callbacks
@@ -110,14 +110,15 @@ handle_state(StateName, State) ->
 
 standby({start_read, Server, Filename}, State) ->
     { ok, Sock } = gen_udp:open(0, [binary]),
-    State2 = State#state{filename=Filename, server=Server, socket=Sock, lastack=0},
+    State2 = State#state{filename=Filename, server=Server, socket=Sock, lastack=0, data = <<>>},
     send_rrq(State2);
 standby(_, State) ->
     {next_state, standby, State}.
 
 rrq_sent({packet, #tftp_data{port=Port, block=Block, data=Data}}, State) ->
     OData = State#state.data,
-    State2 = State#state{port = Port, lastack=Block, data = << OData, Data >>},
+    NData = << OData/binary, Data/binary >>,
+    State2 = State#state{port = Port, lastack=Block, data = NData},
     send_ack(State2);
 rrq_sent(timeout, State) ->
     send_rrq(State);
@@ -135,9 +136,9 @@ ack_sent({packet, #tftp_data{block=Block, data=Data}}, State = #state{}) ->
     State2 = State#state{lastack=Block, data = << OData/binary, Data/binary >>},
     send_ack(State2);
 ack_sent(timeout, State) ->    
-    send_ack(State);
-ack_sent(_, State) ->
-    {next_state, ack_sent, State}.
+    send_ack(State).
+%ack_sent(_, State) ->
+%    {next_state, ack_sent, State}.
    
 
 %%
@@ -211,7 +212,7 @@ handle_sync_event(_Event, _From, StateName, State) ->
 %%--------------------------------------------------------------------
 handle_info({udp, _Socket, _IP, Port, Packet}, StateName, State) ->
     Tftp = tftp_lib:decode(Packet),
-    if Tftp =:= #tftp_data{} ->
+    if is_record(Tftp, tftp_data) ->
             receive_packet(self(), Tftp#tftp_data{port = Port});
        true ->  
             receive_packet(self(), Tftp)

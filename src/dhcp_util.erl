@@ -9,7 +9,8 @@
 
 %% API
 -export([optsearch/2, get_client_id/1, fmt_clientid/1, fmt_gateway/1, fmt_ip/1,
-        fmt_hostname/1]).
+        fmt_hostname/1,
+        get_tftpserver/1, get_tftpfile/1]).
 -include("dhcp.hrl").
 
 optsearch(Option, D) when is_record(D, dhcp) ->
@@ -53,3 +54,20 @@ fmt_hostname(D) when is_record(D, dhcp) ->
 
 fmt_ip({A1, A2, A3, A4}) ->
     io_lib:format("~w.~w.~w.~w", [A1, A2, A3, A4]).
+
+get_tftpserver(D = #dhcp{}) ->
+    case optsearch(?DHO_BOOT_SERVER, D) of
+        {value, BServer} ->
+            binary_to_list(BServer);
+        X ->
+            io:format("get_tftpserver couldn't match ~p  ~n", [X]),
+            ok
+    end.
+
+get_tftpfile(D = #dhcp{}) ->
+    case optsearch(?DHO_BOOT_FILE, D) of
+        {value, BFile} ->
+            binary_to_list(BFile);
+        false ->
+            ok
+    end.    
