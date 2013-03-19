@@ -25,6 +25,9 @@
           errcode :: int,
           errstring :: string
          }).
+
+% TFTP 
+-define(TFTP_PORT, 69).
           
 % TFTP opcode
 -define(OC_RRQ, 1).                 %

@@ -26,14 +26,14 @@
           device,
           server,
           socket,
-          port,
+          port = ?TFTP_PORT,
           filename,
           lastack,
           block,
           data}).
 
 %% public api
--export([stop/1, start_link/2, get_file/2, receive_packet/2, set_standby/1]).
+-export([stop/1, start_link/2, get_file/3, receive_packet/2, set_standby/1]).
 
 %% gen_fsm callbacks
 -export([init/1, code_change/4, handle_state/2, handle_event/3, handle_info/3, 
@@ -48,7 +48,7 @@
 %% @spec start_link(N, Device) -> {ok, Pid} | ignore | {error, Error}
 %% @end
 start_link(N, Device) ->
-    gen_fsm:start_link({local, N}, tftp_client, [N, Device], [{debug,[]}]). %{debug,[trace]}
+    gen_fsm:start_link({local, N}, tftp_client, [N, Device], [{debug,[trace]}]). %{debug,[trace]}
 
 %% send a stop this will end up in "handle_event"
 stop(N)  -> gen_fsm:send_all_state_event(N, {stop}).
@@ -58,8 +58,8 @@ stop(N)  -> gen_fsm:send_all_state_event(N, {stop}).
 %% @doc
 %% Start the tftp client state machine requesting it to get a file
 %% @end
-get_file(N, File) ->
-    gen_fsm:send_event(N, {start_read, File}).
+get_file(N, Server, File) ->
+    gen_fsm:send_event(N, {start_read, Server, File}).
 
 %% @doc
 %% force the tftp client state machine into standby state regadless of
@@ -109,10 +109,9 @@ handle_state(StateName, State) ->
 %%%
 
 standby({start_read, Server, Filename}, State) ->
-    Sock = udp:open(0, [binary]),
+    { ok, Sock } = gen_udp:open(0, [binary]),
     State2 = State#state{filename=Filename, server=Server, socket=Sock, lastack=0},
-    send_rrq(State2),
-    {next_state, rrq_sent, State2, ?ACK_TIMEOUT};
+    send_rrq(State2);
 standby(_, State) ->
     {next_state, standby, State}.
 
@@ -152,7 +151,7 @@ send_ack(State = #state{lastack=Ack, socket=S, server=IP, port=P}) ->
 send_rrq(State = #state{socket=S, server=IP, port=P, filename=F}) ->
     Pck = #tftp_request{opcode=?OC_RRQ, filename=F, mode=?C_OCTET},
     gen_udp:send(S, IP, P, tftp_lib:encode(Pck)),
-    {next_state, rrq_sent, State}.
+    {next_state, rrq_sent, State, ?ACK_TIMEOUT}.
 
 force_close(StateData = #state{socket = S}) ->
     case S of

@@ -3,7 +3,6 @@
 %% @doc Cable modem simulation application
 %% @end
 -module(cablesim_app).
-%-compile([debug_info, export_all]).
 -behaviour(application).
 -include("device.hrl").
 
@@ -32,18 +31,19 @@ stop(_State) ->
 %% Create and start N cable modems with MTA and CPE behind it 
 %% based on specified CM, MTA and CPE device templates
 %% @end
-mk_cms(0, _, _, _, _, _) -> ok;
+mk_cms(NMin, NMin, _, _, _, _) -> ok;
 mk_cms(N, NMin, Cmts, CMTempl, MTATempl, CPETempl) ->
+    io:format("N=~p NMin=~p Cmts=~p~n", [N, NMin, Cmts]),
     CM = device:mk_device(
-           device:mk_pname(cm, N+NMin), Cmts, 
-           device:mk_mac({0,0,0}, 3*N+NMin), CMTempl),
+           device:mk_pname(cm, N), Cmts, 
+           device:mk_mac({0,0,0}, 3*N), CMTempl),
     MTA = device:mk_device(
-            device:mk_pname(cm, N+NMin, mta), CM#device.server_id,
-            device:mk_mac({0,0,0}, 3*N+NMin+1), MTATempl),
+            device:mk_pname(cm, N, mta), CM#device.server_id,
+            device:mk_mac({0,0,0}, 3*N+1), MTATempl),
     CPE = device:mk_device(
-            device:mk_pname(cm, N+NMin, cpe), CM#device.server_id,
-            device:mk_mac({0,0,0}, 3*N+NMin+2), CPETempl),
-    device:start_cablemodem(CM, [MTA, CPE]),
+            device:mk_pname(cm, N, cpe), CM#device.server_id,
+            device:mk_mac({0,0,0}, 3*N+2), CPETempl),
+    device:start_cablemodem(CM, [CPE]),
     cm:poweron(device:mk_pname(cm, N)),
     mk_cms(N-1, NMin, Cmts, CMTempl, MTATempl, CPETempl).
 
@@ -56,5 +56,6 @@ simulate(N) ->
     [CMT|_] = device:cm_db(),
     [MTAT|_] = device:mta_db(),
     [CPET|_] = device:cpe_db(),
-    mk_cms(N, 0, cmts, CMT, MTAT, CPET),
-    mk_cms(N, 1000, cmts2, CMT, MTAT, CPET).
+    io:format("Creating ~p cable modems~n", [N]),
+    mk_cms(N, 0, cmts, CMT, MTAT, CPET).
+%    mk_cms(N+1000, 1000, cmts2, CMT, MTAT, CPET).

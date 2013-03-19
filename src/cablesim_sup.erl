@@ -31,9 +31,9 @@ init(_Args) ->
         [
          {cmts, 
           {cmts, start_link, [cmts, {192,168,56,102}, {192,168,56,105}]},
-          permanent, 5000, worker, [ch1]},
-         {cmts2, 
-          {cmts, start_link, [cmts2, {192,168,56,103}, {192,168,56,105}]},
           permanent, 5000, worker, [ch1]}
+%         {cmts2, 
+%          {cmts, start_link, [cmts2, {192,168,56,103}, {192,168,56,105}]},
+%          permanent, 5000, worker, [ch1]}
         ],
     {ok, {RestartStrategy, Children}}.

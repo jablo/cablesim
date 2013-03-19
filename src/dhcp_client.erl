@@ -186,12 +186,12 @@ handle_dhcp_ack(D = #dhcp{yiaddr=ClientIP}, CurrentState, StateData = #state{dev
                     {_,Bindtime,_} = erlang:now(),
                     NewStateData = StateData#state{ip=ClientIP,leasetime=Value,
                                                    bindtime=Bindtime,retransmit_count=0},
-                    (Template#device_template.linkstate_fun)(Device, online),
+                    (Template#device_template.linkstate_fun)(Device, {online, D}),
                     T1 = t1(NewStateData),
                     {next_state, dhcp_bound, NewStateData, T1*1000};
                 false ->
                     error_logger:info_msg("State dhcp_bound timeout indefinite (bootp)~n"),
-                    (Template#device_template.linkstate_fun)(Device, online),
+                    (Template#device_template.linkstate_fun)(Device, {online, D}),
                     {next_state, dhcp_bound, StateData#state{ip=ClientIP,leasetime=undefined}}
             end;
         % when expecting nak/ack, ignore anything else

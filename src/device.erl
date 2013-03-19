@@ -11,6 +11,7 @@
          mk_device/4, mk_mac/2, mk_pname/2, mk_pname/3,
          start_cablemodem/2]).
 
+-include("dhcp.hrl").
 -include("device.hrl").
 
 %% @doc
@@ -132,8 +133,22 @@ mk_pname(Prefix, N, Postfix) ->
 cm_db() ->
     [#device_template
      {id = cg3000_cm,
+      tftp_module = tftp_client,
       send_packet_fun = fun (D, P) -> cm:send_packet(D#device.server_id, P) end,
-      linkstate_fun = fun (D, B) -> cm:linkstate(D#device.server_id, B) end,
+      linkstate_fun = 
+          fun (D, B = offline) -> 
+                  io:format("CM ~p is ~p~n", [D#device.server_id, B]),
+                  cm:linkstate(D#device.server_id, B),
+                  DT = D#device.template,
+                  (DT#device_template.tftp_module):set_standby(D#device.tftp_client);
+              (D, {B = online, _Dhcp}) -> 
+                  io:format("CM ~p is ~p~n", [D#device.server_id, B]),
+                  cm:linkstate(D#device.server_id, B),
+                  DT = D#device.template,
+                  (DT#device_template.tftp_module):get_file(
+                    D#device.tftp_client, {192,168,56,105}, "config.dat")
+%                    D#device.tftp_client, Dhcp#dhcp.sname, Dhcp#dhcp.file)
+          end,
       vendor_class_id = "docsis3.0:",
       vendor_options_fun =
           fun (_) -> [{2,"ECM"},
@@ -160,10 +175,21 @@ cm_db() ->
 mta_db() ->
     [#device_template
      {id = cg3000_mta,
+      tftp_module = tftp_client,
       send_packet_fun = fun (D, P) -> 
                                 cm:relay_packet(D#device.upstream_id, P) 
                         end,
-      linkstate_fun = fun (_, _) -> ok end,
+      linkstate_fun = 
+          fun (D, B = offline) -> 
+                  io:format("MTA ~p is ~p~n", [D#device.server_id, B]),
+                  DT = D#device.template,
+                  (DT#device_template.tftp_module):set_standby(D#device.tftp_client);
+              (D, {B = online, Dhcp}) -> 
+                  io:format("MTA ~p is ~p~n", [D#device.server_id, B]),
+                  DT = D#device.template,
+                  (DT#device_template.tftp_module):get_file(
+                    D#device.tftp_client, Dhcp#dhcp.sname, Dhcp#dhcp.file)
+          end,
       vendor_class_id = 
           "pktc1.0:051f0101000201020901010b04060903040c01010d01010f010110010912020007",
       vendor_options_fun = 
@@ -190,7 +216,9 @@ cpe_db() ->
     [#device_template
      {id = cg3000_cpe,
       send_packet_fun = fun (D, P) -> cm:relay_packet(D#device.upstream_id, P) end,
-      linkstate_fun = fun (_, _) -> ok end,
+      linkstate_fun = 
+          fun (D, B) -> io:format("CPE ~p is ~p~n", [D#device.server_id, B]),ok
+          end,
       vendor_class_id = "",
       client_id_fun = fun (#device{mac={A,B,C,D,E,F}}) -> [16#ff,C,D,E,F,0,03,00,01,A,B,C,D,E,F] end,
       parameter_request_list = [72,1,2,3,4,6,7,12,15,23,26,54,51,122]
