@@ -40,9 +40,25 @@ scale up indefinitely using Erlang's distributed mechanisms while still maintain
 a central point of control / configuration. But that remains to be seen, this is after
 all my first Erlang program. It is a very draft first version. Currently completed is:
 
-- A simple CMTS simulation that implements DHCP relay.
-- A simple cable modem simulation that implelements DHCP client protocol.
+- A CMTS simulation that implements DHCP relay.
+- A cable modem simulation that implelements DHCP client protocol, Tftp config file download
+- DHCP signatures for Cable modem, MTA and CPE (one example so far).
+- Combined device simulation, of a cable-modem with built in MTA and Router.
 
+Ideas boiling up:
+- Add minimal interpretation of the cable modem config file so the simulation can react
+  eg. on MTA enable/disable, og report some configured values like uplink/downlink speeds.
+- On-demand service: ReSTful web service interface to create a device on-demand and 
+  put it "online".
+- A subscriber behaviour simulation component, ie code that simulates different 
+  customer behaviour: how often is the modem reset, poweroff, poweron, at what time 
+  schedules etc.
+- Feed back to graphite or similar to get performance graphs
+- Add implementation of DHCPv6 client so we can do experiments with IPv6
+- Configuration - some way of describing and executing different scenarios
+
+Done so far:
+------------
 Needless to say, a lot of features are missing. In somewhat prioritized order my list is:
 
 - [2013-03-12 DONE] Add device "signatures" (ie. option 43 etc.) so we can mimic the DHCP client packets sent
@@ -53,18 +69,8 @@ Needless to say, a lot of features are missing. In somewhat prioritized order my
    - Cable modem DHCP + TFTP + ToD simulator
    - DHCP + TFTP simulator for an embedded MTA or SIP device
    - DHCP simulator for an embedded CPE device (router)
-- Write TFTP and ToD state machine modules, so an IP complete cable modem with embedded mta/cpe can
-  be emulated.
-
-Ideas boiling up:
-- On-demand service: ReSTful web service interface to create a device on-demand and 
-  put it "online".
-- A subscriber behaviour simulation component, ie code that simulates different 
-  customer behaviour: how often is the modem reset, poweroff, poweron, at what time 
-  schedules etc.
-- Feed back to graphite or similar to get performance graphs
-- Add implementation of DHCPv6 client so we can do experiments with IPv6
-- Configuration - some way of describing and executing different scenarios
+- [2013-03-19 Done - TFTP] Write TFTP and maybe ToD state machine modules, so an IP complete cable modem
+  with embedded mta/cpe can be simulated. ToD isn't really interesting.
 
 /Jacob Lorensen
 <jalor@yousee.dk>
@@ -77,3 +83,4 @@ Various links:
 - http://www.erlang.org/doc/reference_manual/modules.html
 - https://github.com/yrashk/gen_fsm2/blob/master/example/src/example_fsm.erl
 - http://www.erlang.org/documentation/doc-4.8.2/doc/design_principles/fsm.html
+
