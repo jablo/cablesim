@@ -57,6 +57,30 @@ Ideas boiling up:
 - Add implementation of DHCPv6 client so we can do experiments with IPv6
 - Configuration - some way of describing and executing different scenarios
 
+Example modem boot sequence
+---------------------------
+jablo@jablo-VirtualBox:~/temp/cablesim$ sudo tcpdump -ni eth2 udp
+tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
+listening on eth2, link-type EN10MB (Ethernet), capture size 65535 bytes
+22:53:20.508928 IP 192.168.56.102.67 > 192.168.56.105.67: BOOTP/DHCP, Request from 00:00:00:00:00:03, length 391
+22:53:20.517789 IP 192.168.56.105.67 > 192.168.56.102.67: BOOTP/DHCP, Reply, length 314
+22:53:20.518595 IP 192.168.56.102.67 > 192.168.56.105.67: BOOTP/DHCP, Request from 00:00:00:00:00:03, length 397
+22:53:20.530486 IP 192.168.56.105.67 > 192.168.56.102.67: BOOTP/DHCP, Reply, length 314
+22:53:20.531439 IP 192.168.56.102.67 > 192.168.56.105.67: BOOTP/DHCP, Request from 00:00:00:00:00:04, length 450
+22:53:20.531512 IP 192.168.56.102.67 > 192.168.56.105.67: BOOTP/DHCP, Request from 00:00:00:00:00:05, length 297
+22:53:20.533207 IP 192.168.56.102.36656 > 192.168.56.105.69:  18 RRQ "unprov.cm" octet
+22:53:20.540370 IP 192.168.56.105.67 > 192.168.56.102.67: BOOTP/DHCP, Reply, length 328
+22:53:20.540499 IP 192.168.56.105.59894 > 192.168.56.102.36656: UDP, length 304
+22:53:20.542130 IP 192.168.56.102.67 > 192.168.56.105.67: BOOTP/DHCP, Request from 00:00:00:00:00:04, length 456
+22:53:20.544441 IP 192.168.56.105.67 > 192.168.56.102.67: BOOTP/DHCP, Reply, length 300
+22:53:20.546820 IP 192.168.56.102.67 > 192.168.56.105.67: BOOTP/DHCP, Request from 00:00:00:00:00:05, length 303
+22:53:20.548800 IP 192.168.56.102.36656 > 192.168.56.105.59894: UDP, length 4
+22:53:20.554119 IP 192.168.56.105.67 > 192.168.56.102.67: BOOTP/DHCP, Reply, length 328
+22:53:20.564366 IP 192.168.56.105.67 > 192.168.56.102.67: BOOTP/DHCP, Reply, length 300
+^C
+15 packets captured
+
+
 Done so far:
 ------------
 Needless to say, a lot of features are missing. In somewhat prioritized order my list is:
