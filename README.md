@@ -59,6 +59,7 @@ Ideas boiling up:
 
 Example modem boot sequence
 ---------------------------
+<pre>
 jablo@jablo-VirtualBox:~/temp/cablesim$ sudo tcpdump -ni eth2 udp
 tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
 listening on eth2, link-type EN10MB (Ethernet), capture size 65535 bytes
@@ -79,7 +80,7 @@ listening on eth2, link-type EN10MB (Ethernet), capture size 65535 bytes
 22:53:20.564366 IP 192.168.56.105.67 > 192.168.56.102.67: BOOTP/DHCP, Reply, length 300
 ^C
 15 packets captured
-
+</pre>
 
 Done so far:
 ------------
