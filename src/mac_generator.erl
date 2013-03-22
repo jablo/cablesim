@@ -20,6 +20,7 @@
 %%====================================================================
 %% API
 %%====================================================================
+
 %% @doc
 %% Starts the mac address generator server
 %% @end
@@ -29,6 +30,10 @@ start_link() ->
 			  [], 
                           []). %{debug,[trace]}{debug,[log]}
 
+%% @doc
+%% Calcalate a next mac address based on a mac vendor prefix. Repeated calls
+%% will generate a new unique mac address (based on an increasing counter)
+%% @end
 nextmac(Prefix) ->
     gen_server:call(?MODULE, {nextmac, Prefix}).
 
@@ -36,25 +41,17 @@ nextmac(Prefix) ->
 %% Gen-server callbacks
 %%---------------------------------------------------------------------
 
-%%--------------------------------------------------------------------
 %% @doc Initialize an instance of the cmts server process
 %% @spec init(Args) -> {ok, State} |
 %%                     {ok, State, Timeout} |
 %%                     ignore               |
 %%                     {stop, Reason}
-%%--------------------------------------------------------------------
 init(_Arg) ->
     {ok, #state{prefixdict=dict:new()}}.
-
-
 
 handle_call({nextmac, Prefix}, From, State) ->
     handle_nextmac(Prefix, From, State).
 
-%% @doc
-%% Calcalate a next mac address based on a mac vendor prefix. Repeated calls
-%% will generate a new unique mac address (based on an increasing counter)
-%% @end
 handle_nextmac(Prefix = {A, B, C}, _From, State = #state{prefixdict=Prefixes}) ->
     Prefixes2 =  case dict:find(Prefix, Prefixes) of
                      {ok, Count} ->
