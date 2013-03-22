@@ -1,3 +1,4 @@
+% Hey, emacs! This is really an -*- erlang -*- file
 {application, cablesim,
  [
   {description, "Cable modem and cmts simulation system"},
@@ -8,5 +9,9 @@
                   stdlib
                  ]},
   {mod, { cablesim_app, []}},
-  {env, []}
+  {env, [{cmtslist, 
+          [
+           {cmts, {192,168,56,102}, [{192,168,56,105}, {192,168,56,106}]}
+          ]}
+         ]}
  ]}.

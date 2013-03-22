@@ -21,10 +21,13 @@
 %% @spec start(StartType, StartArgs) -> {ok, Pid} 
 %% @end
 start(_StartType, _StartArgs) ->
+    %io:format("~p~n", [application:get_all_env()]),
+    {ok, Cmtses} = application:get_env(cablesim, cmtslist),
+    io:format("Starting Cmtses: ~p~n", [Cmtses]),
     error_logger:logfile({open, "/tmp/cablesim.log"}),
-    X = cablesim_sup:start_link(),
-    simulate(1),
-    X.
+    _X = cablesim_sup:start_link(Cmtses).
+%    simulate(1),
+%    X.
 
 stop(_State) ->
     ok.
