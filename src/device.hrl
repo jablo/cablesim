@@ -31,4 +31,3 @@
           client_identifier = [],     % dhcp option61 client identifier
           parameter_request_list = [] % dhcp option55
          }). 
-
