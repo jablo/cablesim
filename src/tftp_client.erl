@@ -20,7 +20,7 @@
 -include("device.hrl").
 -include("tftp.hrl").
 
--define(ACK_TIMEOUT, 5000).
+-define(ACK_TIMEOUT, 5000). % timeout in tftp protocol before we retransmit an ack
 
 -record(state, {
           device,
