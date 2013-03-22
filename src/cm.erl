@@ -240,15 +240,14 @@ handle_cast({receive_packet, P}, StateData) ->
 %%
 %% Handle linkstate changes by forwarding the state change to child processes
 %%
-handle_linkstate({offline}, StateData = #state{linkstate=Lold}) ->
-    case Lold of
-        offline ->
-            {noreply, StateData};
-        online ->
-            lists:foreach(fun (D) -> dhcp_client:poweroff(D#device.dhcp_client) end,
-                          StateData#state.devices_behind),
-            {noreply, StateData#state{linkstate=offline}}
-    end;            
+handle_linkstate({offline}, StateData = #state{}) ->
+    % always just force offline child modules
+    Device = StateData#state.device,
+    DevTmpl = Device#device.template,
+    (DevTmpl#device_template.tftp_module):set_standby(Device#device.tftp_client),
+    lists:foreach(fun (D) -> dhcp_client:poweroff(D#device.dhcp_client) end,
+                  StateData#state.devices_behind),
+    {noreply, StateData#state{linkstate=offline}};
 handle_linkstate({online, Dhcp = #dhcp{}, Device = #device{}}, StateData = #state{linkstate=Lold}) ->
     case Lold of
         online ->
