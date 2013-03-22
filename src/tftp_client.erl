@@ -48,7 +48,7 @@
 %% @spec start_link(N, Device) -> {ok, Pid} | ignore | {error, Error}
 %% @end
 start_link(N, Device) ->
-    gen_fsm:start_link({local, N}, tftp_client, [N, Device], [{debug,[trace]}]). %{debug,[trace]}
+    gen_fsm:start_link({local, N}, tftp_client, [N, Device], [{debug,[]}]). %{debug,[trace]}
 
 %% send a stop this will end up in "handle_event"
 stop(N)  -> gen_fsm:send_all_state_event(N, {stop}).
@@ -131,14 +131,16 @@ ack_sent({packet, #tftp_data{block=Block}}, State = #state{lastack=LastAck})
 ack_sent({packet, #tftp_data{block=Block}}, State = #state{lastack=LastAck}) 
   when Block =:= LastAck ->
     send_ack(State);
+% the data block concatenation isn't really expensive; mostly cable modem config files
+% are 1 block long (300 bytes or so).
 ack_sent({packet, #tftp_data{block=Block, data=Data}}, State = #state{}) ->
     OData = State#state.data,
     State2 = State#state{lastack=Block, data = << OData/binary, Data/binary >>},
     send_ack(State2);
 ack_sent(timeout, State) ->    
-    send_ack(State).
-%ack_sent(_, State) ->
-%    {next_state, ack_sent, State}.
+    send_ack(State);
+ack_sent(_, State) ->
+    {next_state, ack_sent, State}.
    
 
 %%
