@@ -10,7 +10,7 @@
 -include("device.hrl").
 
 %% API
--export([start_link/0]).
+-export([start_link/1]).
 
 %% Supervisor callbacks
 -export([init/1]).
@@ -22,22 +22,25 @@
 %% API functions
 %% ===================================================================
 
-start_link() ->
-    supervisor:start_link({local, ?MODULE}, ?MODULE, []).
+start_link(Cmtses) ->
+    io:format("start_link: Cmtses ~p~n", [Cmtses]),
+    supervisor:start_link({local, ?MODULE}, ?MODULE, [Cmtses]).
 
 %% ===================================================================
 %% Supervisor callbacks
 %% ===================================================================
 
-init(_Args) ->
-    RestartStrategy = {one_for_one, 10, 60},
-    Children = 
-        [
-         {cmts, 
-          {cmts, start_link, [cmts, {192,168,56,102}, [{192,168,56,105}, {192,168,56,106}]]},
-          permanent, 5000, worker, [ch1]}
-%         {cmts2, 
-%          {cmts, start_link, [cmts2, {192,168,56,103}, {192,168,56,105}]},
-%          permanent, 5000, worker, [ch1]}
-        ],
+init([Cmtses]) ->
+    RestartStrategy = {one_for_one, 10, 60},    
+    io:format("init CMTSes: ~p~n", [Cmtses]),
+    MR = lists:map(
+           fun ({Id, Ip, DhcpHelpers}) ->
+                   {Id, 
+                    {Id, start_link, [Id, Ip, DhcpHelpers]},
+                    permanent, 5000, worker, [ch1]}
+           end,
+           Cmtses),
+    io:format("MR: ~p~n", [MR]),
+    Children = MR,
+    io:format("SUP Children: ~p~n", [Children]),
     {ok, {RestartStrategy, Children}}.
