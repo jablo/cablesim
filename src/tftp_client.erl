@@ -48,7 +48,7 @@
 %% @spec start_link(N, Device) -> {ok, Pid} | ignore | {error, Error}
 %% @end
 start_link(N, Device) ->
-    gen_fsm:start_link({local, N}, tftp_client, [N, Device], [{debug,[]}]). %{debug,[trace]}
+    gen_fsm:start_link({local, N}, tftp_client, [N, Device], [{debug,[trace]}]). %{debug,[trace]}
 
 %% send a stop this will end up in "handle_event"
 stop(N)  -> gen_fsm:send_all_state_event(N, {stop}).
@@ -95,7 +95,7 @@ receive_packet(N, PACKET) ->
 %%--------------------------------------------------------------------
 init([N, Device]) ->
     error_logger:info_msg("Starting TFTP Client ~p~n", [N]),
-    {ok, poweroff, #state{device=Device}}.
+    {ok, standby, #state{device=Device}}.
 
 %%
 %% Should be called on every state change...

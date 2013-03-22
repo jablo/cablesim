@@ -62,10 +62,21 @@ stop(CmId) ->
 %% to the cmts is up/down.
 %% @see relay_packet
 %% @end
-linkstate(CmId, online) ->
-    gen_server:cast(CmId, {linkstate, online});
-linkstate(CmId, offline) ->
-    gen_server:cast(CmId, {linkstate, offline}).
+linkstate(CmId, Linkstate) ->
+    gen_server:cast(CmId, {linkstate, Linkstate}).
+
+% going offline 
+%                  DT = D#device.template,
+ %                 (DT#device_template.tftp_module):set_standby(D#device.tftp_client);
+
+% going online
+%                  DT = D#device.template,
+%                  (DT#device_template.tftp_module):get_file(
+%                    D#device.tftp_client, 
+%                    dhcp_util:get_tftpserver(Dhcp),
+%                    dhcp_util:get_tftpfile(Dhcp))
+
+
 
 %% @doc
 %% Cable modem native components modems call this to have a network packet 
@@ -229,7 +240,7 @@ handle_cast({receive_packet, P}, StateData) ->
 %%
 %% Handle linkstate changes by forwarding the state change to child processes
 %%
-handle_linkstate(offline, StateData = #state{linkstate=Lold}) ->
+handle_linkstate({offline}, StateData = #state{linkstate=Lold}) ->
     case Lold of
         offline ->
             {noreply, StateData};
@@ -238,11 +249,19 @@ handle_linkstate(offline, StateData = #state{linkstate=Lold}) ->
                           StateData#state.devices_behind),
             {noreply, StateData#state{linkstate=offline}}
     end;            
-handle_linkstate(online, StateData = #state{linkstate=Lold}) ->
+handle_linkstate({online, Dhcp = #dhcp{}, Device = #device{}}, StateData = #state{linkstate=Lold}) ->
     case Lold of
         online ->
+            % Link was up and is still up - no change
             {noreply, StateData};
         offline ->
+            % Link was offline and came online: Get the cable modem config file
+            DT = Device#device.template,
+            (DT#device_template.tftp_module):get_file(
+              Device#device.tftp_client, 
+              dhcp_util:get_tftpserver(Dhcp),
+              dhcp_util:get_tftpfile(Dhcp)),
+            % and tell other components in cm that link is up
             lists:foreach(fun (D) -> dhcp_client:poweron(D#device.dhcp_client) end,
                           StateData#state.devices_behind),
             {noreply, StateData#state{linkstate=online}}

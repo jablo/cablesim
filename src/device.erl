@@ -138,17 +138,10 @@ cm_db() ->
       linkstate_fun = 
           fun (D, B = offline) -> 
                   io:format("CM ~p is ~p~n", [D#device.server_id, B]),
-                  cm:linkstate(D#device.server_id, B),
-                  DT = D#device.template,
-                  (DT#device_template.tftp_module):set_standby(D#device.tftp_client);
+                  cm:linkstate(D#device.server_id, {B});
               (D, {B = online, Dhcp}) -> 
                   io:format("CM ~p is ~p~n", [D#device.server_id, B]),
-                  cm:linkstate(D#device.server_id, B),
-                  DT = D#device.template,
-                  (DT#device_template.tftp_module):get_file(
-                    D#device.tftp_client, 
-                    dhcp_util:get_tftpserver(Dhcp),
-                    dhcp_util:get_tftpfile(Dhcp))
+                  cm:linkstate(D#device.server_id, {B, Dhcp, D})
           end,
       vendor_class_id = "docsis3.0",
       vendor_options_fun =
