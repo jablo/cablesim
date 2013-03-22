@@ -1,13 +1,11 @@
 %%%-------------------------------------------------------------------
-%%% File    : cmts 
-%%% Author  : Jacob Lorensen
-%%% Description : DHCP relay agent simulator
-%%%
-%%% Created : 08 March 2013 by Jacob Lorensen <jalor@yousee.dk> 
-%%%
+%%% @author Jacob Lorensen
+%%% @copyright 08 March 2013 by Jacob Lorensen <jalor@yousee.dk> 
+%%% @doc DHCP relay agent simulator
 %%%
 %%% For non-root uses:
 %%% http://askubuntu.com/questions/8250/weird-issue-with-iptables-redirection
+%%% @end
 %%%-------------------------------------------------------------------
 -module(cmts).
 %-compile([debug_info, export_all]).
@@ -31,7 +29,7 @@
 -define(DHCP_CLIENT_PORT, 68).
 -define(DHCP_RELAY_PORT, 67).
 
--record(state, {socket, cmts, dhcp_serverip, giaddress, cms}).
+-record(state, {socket, cmts, dhcp_helpers, giaddress, cms}).
 
 %%====================================================================
 %% API
@@ -41,10 +39,10 @@
 %%                                 {ok,Pid} | ignore | {error,Error}
 %% Description: Starts an instance of the Cmts server
 %%--------------------------------------------------------------------
-start_link(Cmts, GiAddress, DhcpServerIP) ->
-    io:format("CMTS start-link ~p ~p ~p ~n", [Cmts, GiAddress, DhcpServerIP]),
+start_link(Cmts, GiAddress, DhcpHelpers) ->
+    io:format("CMTS start-link ~p ~p ~p ~n", [Cmts, GiAddress, DhcpHelpers]),
     gen_server:start_link({local, Cmts}, ?MODULE,
-			  [Cmts, GiAddress, DhcpServerIP], 
+			  [Cmts, GiAddress, DhcpHelpers], 
                           []). %{debug,[trace]}{debug,[log]}
 
 %% @doc
@@ -88,14 +86,14 @@ stop(CMTS) ->
 %%                     ignore               |
 %%                     {stop, Reason}
 %%--------------------------------------------------------------------
-init([ServerId, GiAddress, DhcpServerIP]) ->
+init([ServerId, GiAddress, DhcpHelpers]) ->
     Options = get_sockopt(GiAddress),
     case gen_udp:open(?DHCP_RELAY_PORT, Options) of
 	{ok, Socket} ->
 	    error_logger:info_msg("Starting CMTS ~p~n", [ServerId]),
 	    {ok, #state{socket = Socket,
 			cmts = ServerId,
-                        dhcp_serverip = DhcpServerIP,
+                        dhcp_helpers = DhcpHelpers,
                         giaddress = GiAddress,
                         cms=dict:new()}};
 	{error, Reason} ->
@@ -139,14 +137,14 @@ handle_cast({disconnect, Mac}, State) ->
     error_logger:info_msg("Disconnecting ~p~n", [Mac]),
     {noreply, State#state{cms=dict:erase(Mac, State#state.cms)}};
 % External event: forward a dhcp packet from an attached cable modem
-handle_cast({DhcpPacket = #dhcp{}, CmId}, State) ->
-    Socket = State#state.socket,
-    {IP, Port} = get_dest(DhcpPacket, State),
+handle_cast({DhcpPacket = #dhcp{}, CmId}, State = #state{dhcp_helpers = IPs, socket = Socket}) ->
     D = DhcpPacket#dhcp{giaddr=State#state.giaddress},
     Mac = DhcpPacket#dhcp.chaddr,
     CableModems2 = dict:store(Mac, CmId, State#state.cms),
     State2 = State#state{cms=CableModems2},
-    gen_udp:send(Socket, IP, Port, dhcp_lib:encode(D)),
+    lists:foreach(
+      fun (IP) -> gen_udp:send(Socket, IP, ?DHCP_SERVER_PORT, dhcp_lib:encode(D)) end,
+      IPs),
     {noreply, State2}.    
 
 
@@ -200,9 +198,6 @@ handle_dhcp(_DHCPPACKET_TYPE, D = #dhcp{chaddr=Mac}, State) ->
     CMID = dict:fetch(Mac, State#state.cms),            
     cm:receive_packet(CMID, D),
     {noreply, State}.
-
-get_dest(D, #state{dhcp_serverip=DhcpIp}) when is_record(D, dhcp) ->
-    {DhcpIp, ?DHCP_SERVER_PORT}.
 
 get_sockopt(IP) ->
     [binary, {broadcast, true}, {ip, IP}].

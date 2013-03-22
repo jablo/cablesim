@@ -1,7 +1,9 @@
+%%%-------------------------------------------------------------------
 %% @author Jacob Lorensen
 %% @copyright Jacob Lorensen 2013
 %% @doc Cable modem simulation application
 %% @end
+%%%-------------------------------------------------------------------
 -module(cablesim_app).
 -behaviour(application).
 -include("device.hrl").

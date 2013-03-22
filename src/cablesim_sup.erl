@@ -1,3 +1,7 @@
+%% @author Jacob Lorensen
+%% @copyright Jacob Lorensen 2013
+%% @doc Cable modem simulation main supervisor
+%% @end
 -module(cablesim_sup).
 %-compile([debug_info, export_all]).
 
@@ -30,7 +34,7 @@ init(_Args) ->
     Children = 
         [
          {cmts, 
-          {cmts, start_link, [cmts, {192,168,56,102}, {192,168,56,105}]},
+          {cmts, start_link, [cmts, {192,168,56,102}, [{192,168,56,105}, {192,168,56,106}]]},
           permanent, 5000, worker, [ch1]}
 %         {cmts2, 
 %          {cmts, start_link, [cmts2, {192,168,56,103}, {192,168,56,105}]},
