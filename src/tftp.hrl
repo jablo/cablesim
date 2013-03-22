@@ -30,11 +30,11 @@
 -define(TFTP_PORT, 69).
           
 % TFTP opcode
--define(OC_RRQ, 1).                 %
--define(OC_WRQ, 2).                 %
--define(OC_DATA, 3).                %
--define(OC_ACK, 4).                 %
--define(OC_ERR, 5).                 %
+-define(OC_RRQ, 1).                 % READ Request
+-define(OC_WRQ, 2).                 % WRITE Request
+-define(OC_DATA, 3).                % DATA packet
+-define(OC_ACK, 4).                 % ACK packet
+-define(OC_ERR, 5).                 % ERROR message
 
 % TFTP Constants
 -define(C_EOS, 0).                  % end of string
