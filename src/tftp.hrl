@@ -40,6 +40,7 @@
 -define(C_EOS, 0).                  % end of string
 -define(C_NETASCII, "netascii").    % netascii transfer mode
 -define(C_OCTET, "octet").          % octet or binary transfer mode
+-define(C_BLKSIZ, 512).             % TFTP data packet block size
 
 % TFTP error codes
 -define(ERR_UNDEF, 0).              % Not defined, see error message (if any).

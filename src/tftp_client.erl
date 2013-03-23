@@ -48,7 +48,7 @@
 %% @spec start_link(N, Device) -> {ok, Pid} | ignore | {error, Error}
 %% @end
 start_link(N, Device) ->
-    gen_fsm:start_link({local, N}, tftp_client, [N, Device], [{debug,[trace]}]). %{debug,[trace]}
+    gen_fsm:start_link({local, N}, tftp_client, [N, Device], [{debug,[]}]). %{debug,[trace]}
 
 %% send a stop this will end up in "handle_event"
 stop(N)  -> gen_fsm:send_all_state_event(N, {stop}).
@@ -110,7 +110,8 @@ handle_state(StateName, State) ->
 
 standby({start_read, Server, Filename}, State) ->
     { ok, Sock } = gen_udp:open(0, [binary]),
-    State2 = State#state{filename=Filename, server=Server, socket=Sock, lastack=0, data = <<>>},
+    State2 = State#state{filename=Filename, server=Server, socket=Sock, port=?TFTP_PORT,
+                         lastack=0, data = <<>>},
     send_rrq(State2);
 standby(_, State) ->
     {next_state, standby, State}.
@@ -119,7 +120,13 @@ rrq_sent({packet, #tftp_data{port=Port, block=Block, data=Data}}, State) ->
     OData = State#state.data,
     NData = << OData/binary, Data/binary >>,
     State2 = State#state{port = Port, lastack=Block, data = NData},
-    send_ack(State2);
+    if size(Data) < ?C_BLKSIZ ->
+            io:format("File received ~p~n",[State#state.filename]),
+            gen_udp:close(State#state.socket), % might have a client-Lingering-state here.
+            {next_state, standby, State};
+       size(Data) == ?C_BLKSIZ ->
+            send_ack(State2)
+    end;
 rrq_sent(timeout, State) ->
     send_rrq(State);
 rrq_sent(_, State) ->
@@ -149,7 +156,7 @@ ack_sent(_, State) ->
 send_ack(State = #state{lastack=Ack, socket=S, server=IP, port=P}) ->
     Pck = #tftp_ack{block=Ack},
     gen_udp:send(S, IP, P, tftp_lib:encode(Pck)),
-    {next_state, ack_sent, State}.
+    {next_state, ack_sent, State, ?ACK_TIMEOUT}.
 
 send_rrq(State = #state{socket=S, server=IP, port=P, filename=F}) ->
     Pck = #tftp_request{opcode=?OC_RRQ, filename=F, mode=?C_OCTET},

@@ -58,14 +58,9 @@ mk_cm(Cmts, CmId, MacVendor, CmTempl, MtaTempl, CpeTemplList) ->
 %% @end
 simulate([]) -> ok;
 
-simulate([ CmSpec = {CmId, MacVendor, CmTmplName, MtaTmplName, CpeTmplNameList, Cmts} |T]) ->
-    io:format("Creating cable modems ~p~n", [CmSpec]),
+simulate([{CmId, MacVendor, CmTmplName, MtaTmplName, CpeTmplNameList, Cmts} |T]) ->
     CmTmpl = device:cm_db(CmTmplName),
-    io:format("CmTMpl: ~p~n", [CmTmpl]),
     MtaTmpl = device:mta_db(MtaTmplName),
-    io:format("MtaTmpl: ~p~n", [MtaTmpl]),
-    io:format("CpeTmplNameList ~p~n", [CpeTmplNameList]),
-    CpeTmplList = lists:map(fun (X) -> io:format("Find ~p in cpe_db~n", [X]), device:cpe_db(X) end, CpeTmplNameList),
-    io:format("CpeTMplList: ~p~n", [CpeTmplList]),
+    CpeTmplList = lists:map(fun (X) -> device:cpe_db(X) end, CpeTmplNameList),
     mk_cm(Cmts, CmId, MacVendor, CmTmpl, MtaTmpl, CpeTmplList),
     simulate(T).

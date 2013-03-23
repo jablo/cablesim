@@ -65,19 +65,6 @@ stop(CmId) ->
 linkstate(CmId, Linkstate) ->
     gen_server:cast(CmId, {linkstate, Linkstate}).
 
-% going offline 
-%                  DT = D#device.template,
- %                 (DT#device_template.tftp_module):set_standby(D#device.tftp_client);
-
-% going online
-%                  DT = D#device.template,
-%                  (DT#device_template.tftp_module):get_file(
-%                    D#device.tftp_client, 
-%                    dhcp_util:get_tftpserver(Dhcp),
-%                    dhcp_util:get_tftpfile(Dhcp))
-
-
-
 %% @doc
 %% Cable modem native components modems call this to have a network packet 
 %% sent to the cmts (and further onwards) to the dhcp server. Send_packet

@@ -24,9 +24,7 @@
 
 start_link(Cmtses, Cms) ->
     io:format("start_link:~nCmtses ~p~nCms: ~p", [Cmtses, Cms]),
-    R = supervisor:start_link({local, ?MODULE}, ?MODULE, [Cmtses, Cms]),
-    io:format("Supervisor start_link returned ~p~n", [R]),
-    R.
+    supervisor:start_link({local, ?MODULE}, ?MODULE, [Cmtses, Cms]).
 
 %% ===================================================================
 %% Supervisor callbacks
@@ -34,7 +32,6 @@ start_link(Cmtses, Cms) ->
 
 init([Cmtses|_]) ->
     RestartStrategy = {one_for_one, 10, 60},    
-    io:format("init~nCMTSes: ~p~n", [Cmtses]),
     CmtsChildren = lists:map(
                      fun ({Id, Ip, DhcpHelpers}) ->
                              {Id, 
@@ -42,10 +39,8 @@ init([Cmtses|_]) ->
                               permanent, 5000, worker, [cmts,cm]}
                      end,
                      Cmtses),
-    io:format("Permament CMTS processes: ~p~n", [CmtsChildren]),
     supervisor:check_childspecs(CmtsChildren),
     MacChild = {mac_generator,{mac_generator,start_link,[]},
                 permanent,5000,worker,[mac_generator]},
     Children = [MacChild | CmtsChildren],
-    io:format("SUP Children: ~p~n", [Children]),
     {ok, {RestartStrategy, Children}}.

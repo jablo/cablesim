@@ -140,10 +140,8 @@ cm_db() ->
       send_packet_fun = fun (D, P) -> cm:send_packet(D#device.server_id, P) end,
       linkstate_fun = 
           fun (D, B = offline) -> 
-                  io:format("CM ~p is ~p~n", [D#device.server_id, B]),
                   cm:linkstate(D#device.server_id, {B});
               (D, {B = online, Dhcp}) -> 
-                  io:format("CM ~p is ~p~n", [D#device.server_id, B]),
                   cm:linkstate(D#device.server_id, {B, Dhcp, D})
           end,
       vendor_class_id = "docsis3.0",
@@ -179,7 +177,7 @@ mta_db() ->
                                 cm:relay_packet(D#device.upstream_id, P) 
                         end,
       linkstate_fun = 
-          fun (D, B) -> io:format("MTA ~p is ~p~n", [D#device.server_id, B]),ok
+          fun (_, _) -> ok
           end,
       vendor_class_id = 
           "pktc1.0:051f0101000201020901010b04060903040c01010d01010f010110010912020007",
@@ -211,7 +209,7 @@ cpe_db() ->
      {id = cg3000_cpe,
       send_packet_fun = fun (D, P) -> cm:relay_packet(D#device.upstream_id, P) end,
       linkstate_fun = 
-          fun (D, B) -> io:format("CPE ~p is ~p~n", [D#device.server_id, B]),ok
+          fun (_, _) -> ok
           end,
       vendor_class_id = "",
       client_id_fun = fun (#device{mac={A,B,C,D,E,F}}) -> [16#ff,C,D,E,F,0,03,00,01,A,B,C,D,E,F] end,
