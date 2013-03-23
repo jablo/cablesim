@@ -7,7 +7,7 @@
 %%%-------------------------------------------------------------------
 -module(device).
 
--export([cm_db/0, mta_db/0, cpe_db/0, 
+-export([cm_db/0, mta_db/0, cpe_db/0, cm_db/1, mta_db/1, cpe_db/1, 
          mk_device/4, mk_mac/2, mk_pname/2, mk_pname/3,
          start_cablemodem/2]).
 
@@ -122,14 +122,17 @@ mk_device(Name, Upstream, Mac, Templ = #device_template{}) ->
 mk_pname(Prefix, N) when is_integer(N) ->
    list_to_atom(atom_to_list(Prefix) ++ integer_to_list(N));
 mk_pname(Prefix, Postfix) when is_atom(Postfix) ->
-   list_to_atom(atom_to_list(Prefix) ++ atom_to_list(Postfix)).
-mk_pname(Prefix, N, Postfix) ->
-   list_to_atom(atom_to_list(Prefix) ++ integer_to_list(N)  ++ "_" ++ atom_to_list(Postfix)).
+   list_to_atom(atom_to_list(Prefix) ++ "_" ++ atom_to_list(Postfix)).
+mk_pname(Prefix, Postfix, N) ->
+   list_to_atom(atom_to_list(Prefix) ++ "_" ++ atom_to_list(Postfix) ++ integer_to_list(N)).
 
 
 %% @doc
 %% Cable modem template database.
 %% @end
+cm_db(_) ->
+    [H|_] = cm_db(),
+    H.
 cm_db() ->
     [#device_template
      {id = cg3000_cm,
@@ -166,6 +169,9 @@ cm_db() ->
 %% @doc
 %% Media terminal adapter (telephony device) template database.
 %% @end
+mta_db(_) ->
+    [H|_] = mta_db(),
+    H.
 mta_db() ->
     [#device_template
      {id = cg3000_mta,
@@ -197,6 +203,9 @@ mta_db() ->
 %% @doc
 %% PC / router template database.
 %% @end
+cpe_db(_) ->
+    [H|_] = cpe_db(),
+    H.
 cpe_db() ->
     [#device_template
      {id = cg3000_cpe,

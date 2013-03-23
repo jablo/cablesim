@@ -35,6 +35,7 @@ start_link() ->
 %% will generate a new unique mac address (based on an increasing counter)
 %% @end
 nextmac(Prefix) ->
+    io:format("Mac-generator nextmac ~p~n", [Prefix]),
     gen_server:call(?MODULE, {nextmac, Prefix}).
 
 %%---------------------------------------------------------------------
@@ -47,9 +48,11 @@ nextmac(Prefix) ->
 %%                     ignore               |
 %%                     {stop, Reason}
 init(_Arg) ->
+    io:format("Mac-generator initializing~n"),
     {ok, #state{prefixdict=dict:new()}}.
 
 handle_call({nextmac, Prefix}, From, State) ->
+    io:format("Mac-generator handle_call ~p~n", [Prefix]),
     handle_nextmac(Prefix, From, State).
 
 handle_nextmac(Prefix = {A, B, C}, _From, State = #state{prefixdict=Prefixes}) ->
@@ -62,6 +65,7 @@ handle_nextmac(Prefix = {A, B, C}, _From, State = #state{prefixdict=Prefixes}) -
                  end,
     State2 = State#state{prefixdict=Prefixes2},
     Mac = {A, B, C, Count div 256 div 256, Count div 256, Count rem 256},
+    io:format("Mac-nextmac returning: ~p", [Mac]),
     {reply, Mac, State2}.
 
 handle_cast(stop, State) ->

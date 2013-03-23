@@ -2,6 +2,7 @@
 {application, cablesim,
  [
   {description, "Cable modem and cmts simulation system"},
+  {id, cablesim_appid},
   {vsn, "1"},
   {registered, []},
   {applications, [
@@ -12,6 +13,12 @@
   {env, [{cmtslist, 
           [
            {cmts, {192,168,56,102}, [{192,168,56,105}, {192,168,56,106}]}
+          ]},
+         {cmlist,
+          [{cm, {0,0,0}, cg300_cm, cg3000_mta, [cg3000_cpe], cmts},
+           {cm2, {0,0,0}, cg300_cm, cg3000_mta, [cg3000_cpe], cmts},
+           {cm3, {0,0,0}, cg300_cm, cg3000_mta, [cg3000_cpe], cmts},
+           {cm4, {0,0,0}, cg300_cm, cg3000_mta, [cg3000_cpe, cg3000_cpe, cg3000_cpe], cmts}
           ]}
-         ]}
- ]}.
+ ]}
+]}.
