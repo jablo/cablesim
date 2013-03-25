@@ -5,8 +5,9 @@
 %%% @end
 %%%-------------------------------------------------------------------
 -module(mac_generator).
-
 -behaviour(gen_server).
+
+-include("debug.hrl").
 
 %% Public API
 -export([start_link/0, nextmac/1]).
@@ -26,16 +27,19 @@
 %% @end
 %%--------------------------------------------------------------------
 start_link() ->
-    gen_server:start_link({local, ?MODULE}, ?MODULE,
+    ?debug("mac_generator:start_link()~n"),
+    X = gen_server:start_link({local, ?MODULE}, ?MODULE,
 			  [], 
-                          []). %{debug,[trace]}{debug,[log]}
+                          []),
+    ?debug("mac_generator:start_link() returns ~p~n", [X]),
+    X. %{debug,[trace]}{debug,[log]}
 
 %% @doc
 %% Calcalate a next mac address based on a mac vendor prefix. Repeated calls
 %% will generate a new unique mac address (based on an increasing counter)
 %% @end
 nextmac(Prefix) ->
-    io:format("Mac-generator nextmac ~p~n", [Prefix]),
+    ?debug("mac_generator:nextmac(~p)~n", [Prefix]),
     gen_server:call(?MODULE, {nextmac, Prefix}).
 
 %%---------------------------------------------------------------------
@@ -48,10 +52,21 @@ nextmac(Prefix) ->
 %%                     ignore               |
 %%                     {stop, Reason}
 init(_Arg) ->
-    {ok, #state{prefixdict=dict:new()}}.
+    ?debug("mac_generator:init(~p)~n", [_Arg]),
+    X = {ok, #state{prefixdict=dict:new()}},
+    ?debug("mac_generator:init(~p) returns ~p~n", [_Arg, X]),
+    X.
 
-handle_call({nextmac, Prefix}, From, State) ->
-    handle_nextmac(Prefix, From, State).
+
+handle_call(_X = {nextmac, Prefix}, From, State) ->
+    ?debug("mac_generator:handle_call(~p, ~p, ~p) ~n", [_X, From, State]),
+    handle_nextmac(Prefix, From, State);
+handle_call(_X = {test}, _F, S) ->
+    ?debug("TEST: mac_generator:(~p, ~p, ~p) ~n", [_X, _F, S]),
+    {reply, ok, S};
+handle_call(_X, _F, _S) ->
+    ?debug("no match: mac_generator:(~p, ~p, ~p) ~n", [_X, _F, _S]),
+    error.
 
 handle_nextmac(Prefix = {A, B, C}, _From, State = #state{prefixdict=Prefixes}) ->
     Prefixes2 =  case dict:find(Prefix, Prefixes) of

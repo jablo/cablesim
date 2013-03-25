@@ -6,6 +6,7 @@
 %%%-------------------------------------------------------------------
 -module(cablesim_app).
 -behaviour(application).
+-include("debug.hrl").
 -include("device.hrl").
 
 %% Application callbacks
@@ -27,7 +28,7 @@ start(_StartType, _StartArgs) ->
     {ok, Cms} = application:get_env(cablesim, cmlist),
     io:format("Starting Cms: ~p~n", [Cms]),
     cablesim_sup:start_link(Cmtses, Cms),
-    io:format("Supervisor started~nTesting mac: ~p~n ", [mac_generator:nextmac({1,2,3})]),
+    io:format("~nSupervisor started~n"),
     simulate(Cms),
     {ok, self()}.
 

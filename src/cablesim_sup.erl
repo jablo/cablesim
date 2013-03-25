@@ -7,6 +7,7 @@
 
 -behaviour(supervisor).
 
+-include("debug.hrl").
 -include("device.hrl").
 
 %% API
@@ -23,7 +24,7 @@
 %% ===================================================================
 
 start_link(Cmtses, Cms) ->
-    io:format("start_link:~nCmtses ~p~nCms: ~p", [Cmtses, Cms]),
+    ?debug("start_link:~nCmtses ~p~nCms: ~p", [Cmtses, Cms]),
     supervisor:start_link({local, ?MODULE}, ?MODULE, [Cmtses, Cms]).
 
 %% ===================================================================
@@ -33,9 +34,9 @@ start_link(Cmtses, Cms) ->
 init([Cmtses|_]) ->
     RestartStrategy = {one_for_one, 10, 60},    
     CmtsChildren = lists:map(
-                     fun ({Id, Ip, DhcpHelpers}) ->
+                     fun ({Id, Intf, Ip, Netmask, DhcpHelpers}) ->
                              {Id, 
-                              {cmts, start_link, [Id, Ip, DhcpHelpers]},
+                              {cmts, start_link, [Id, Intf, Ip, Netmask, DhcpHelpers]},
                               permanent, 5000, worker, [cmts,cm]}
                      end,
                      Cmtses),
@@ -43,4 +44,5 @@ init([Cmtses|_]) ->
     MacChild = {mac_generator,{mac_generator,start_link,[]},
                 permanent,5000,worker,[mac_generator]},
     Children = [MacChild | CmtsChildren],
+    supervisor:check_childspecs(Children),
     {ok, {RestartStrategy, Children}}.

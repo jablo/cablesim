@@ -4,6 +4,9 @@
   {description, "Cable modem and cmts simulation system"},
   {id, cablesim_appid},
   {vsn, "1"},
+  {modules, [
+             cablesim_app, cablesim_sup, cmts, mac_generator
+            ]},
   {registered, []},
   {applications, [
                   kernel,
@@ -12,13 +15,14 @@
   {mod, { cablesim_app, []}},
   {env, [{cmtslist, 
           [
-           {cmts, {192,168,56,102}, [{192,168,56,105}, {192,168,56,106}]}
+           {cmts, "eth2:1", {192,168,56,103}, {255,255,255,0}, [{192,168,56,105}, {192,168,56,106}]},
+           {cmts1, "eth2:2", {192,168,56,104}, {255,255,255,0}, [{192,168,56,105}, {192,168,56,106}]}
           ]},
          {cmlist,
-          [{cm, {0,0,0}, cg300_cm, cg3000_mta, [cg3000_cpe], cmts},
-           {cm2, {0,0,0}, cg300_cm, cg3000_mta, [cg3000_cpe], cmts},
-           {cm3, {0,0,0}, cg300_cm, cg3000_mta, [cg3000_cpe], cmts},
-           {cm4, {0,0,0}, cg300_cm, cg3000_mta, [cg3000_cpe, cg3000_cpe, cg3000_cpe], cmts}
+          [{cm, {0,0,0}, cg300_cm, cg3000_mta, [cg3000_cpe], cmts}
+%           {cm2, {0,0,0}, cg300_cm, cg3000_mta, [cg3000_cpe], cmts},
+%           {cm3, {0,0,0}, cg300_cm, cg3000_mta, [cg3000_cpe], cmts},
+%           {cm4, {0,0,0}, cg300_cm, cg3000_mta, [cg3000_cpe, cg3000_cpe, cg3000_cpe], cmts}
           ]}
  ]}
 ]}.

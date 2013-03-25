@@ -8,12 +8,13 @@
 %%% @end
 %%%-------------------------------------------------------------------
 -module(cmts).
+-include("debug.hrl").
 %-compile([debug_info, export_all]).
 
 -behaviour(gen_server).
 
 %% Public API
--export([start_link/3, send_packet/3, stop/1, reboot/1, disconnect/2, connect/2]).
+-export([start_link/5, send_packet/3, stop/1, reboot/1, disconnect/2, connect/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, 
@@ -39,11 +40,15 @@
 %%                                 {ok,Pid} | ignore | {error,Error}
 %% Description: Starts an instance of the Cmts server
 %%--------------------------------------------------------------------
-start_link(Cmts, GiAddress, DhcpHelpers) ->
+start_link(Cmts, Intf, GiAddress, Netmask, DhcpHelpers) ->
     io:format("CMTS start-link ~p ~p ~p ~n", [Cmts, GiAddress, DhcpHelpers]),
-    gen_server:start_link({local, Cmts}, ?MODULE,
-			  [Cmts, GiAddress, DhcpHelpers], 
-                          []). %{debug,[trace]}{debug,[log]}
+    X = gen_server:start_link({local, Cmts}, ?MODULE,
+                              [Cmts, Intf, GiAddress, Netmask, DhcpHelpers], 
+                              []), %{debug,[trace]}{debug,[log]}
+    ?debug("cmts:start_link(~p, ~p, ~p, ~p, ~p) ~n   returns ~p~n", 
+           [Cmts, Intf, GiAddress, Netmask, DhcpHelpers, X]),
+    X. %{debug,[trace]}{debug,[log]}
+
 
 %% @doc
 %% Cable modems call this to have a dhcp packet relayed to the dhcp server
@@ -86,7 +91,8 @@ stop(CMTS) ->
 %%                     ignore               |
 %%                     {stop, Reason}
 %%--------------------------------------------------------------------
-init([ServerId, GiAddress, DhcpHelpers]) ->
+init([ServerId, Intf, GiAddress, Netmask, DhcpHelpers]) ->
+    netconfig:network_config(Intf, GiAddress, Netmask),
     Options = get_sockopt(GiAddress),
     case gen_udp:open(?DHCP_RELAY_PORT, Options) of
 	{ok, Socket} ->

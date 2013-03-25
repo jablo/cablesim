@@ -122,6 +122,7 @@ rrq_sent({packet, #tftp_data{port=Port, block=Block, data=Data}}, State) ->
     State2 = State#state{port = Port, lastack=Block, data = NData},
     if size(Data) < ?C_BLKSIZ ->
             io:format("File received ~p~n",[State#state.filename]),
+            io:format("Content: ~p~n", [docsisfile:parse(NData)]),
             gen_udp:close(State#state.socket), % might have a client-Lingering-state here.
             {next_state, standby, State};
        size(Data) == ?C_BLKSIZ ->
