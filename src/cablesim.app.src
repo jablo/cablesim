@@ -1,4 +1,4 @@
-% Hey, emacs! This is really an -*- erlang -*- file
+% Hey, Emacs! You may not think so, This is really an -*- erlang -*- file
 {application, cablesim,
  [
   {description, "Cable modem and cmts simulation system"},
@@ -11,6 +11,7 @@
   {applications, [
                   kernel,
                   stdlib
+%                  crypto, ranch, cowboy
                  ]},
   {mod, { cablesim_app, []}},
   {env, [{cmtslist, 
