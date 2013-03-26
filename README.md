@@ -9,10 +9,24 @@ cd ebin
 erl 
 application:start(cablesim).
 </pre>
-will simulate 2 CMTSes each with 1 cable modem attached, having  mta and cpe booting.
-Currently Dhcp server IP address, and CMTS gi-addresses are hard-coded to 192.168.56.102
-and .103. You will have to add network interfaces and ip addresses to your computer's
-configuration manually before starting the demo.
+will simulate 1 CMTS with 1 cable modem attached, having mta and cpe booting.
+Currently the DHCP server IP address, and CMTS gi-address are hard-coded to 192.168.56.102. 
+
+Prerequisites
+-------------
+You need a running DHCP server, configured to recognize DOCSIS cable modems and
+configured to respond to DOCSIS cable modem DHCP options. This is too complex
+for this short document.
+
+Further, the O/S user running this program should be in the sudoers file,
+allowed to execute "ifconfig" command without a password e.g.:
+<pre>
+jablo    ALL = NOPASSWD: /sbin/ifconfig
+</pre>
+Likewise, you may have to allow your Erlang interpreter to open udp ports below 1024. On my ubuntu linux box, I:
+<pre>
+sudo setcap 'cap_net_bind_service=+ep' /usr/lib/erlang/erts-5.9.1/bin/beam.smp 
+</pre>
 
 Background
 ----------
@@ -45,19 +59,6 @@ all my first Erlang program. It is a very draft first version. Currently complet
 - DHCP signatures for Cable modem, MTA and CPE (one example so far).
 - Combined device simulation, of a cable-modem with built in MTA and Router.
 
-Ideas boiling up:
-- Add handling of more than one DHCP server
-- Add minimal interpretation of the cable modem config file so the simulation can react
-  eg. on MTA enable/disable, og report some configured values like uplink/downlink speeds.
-- On-demand service: ReSTful web service interface to create a device on-demand and 
-  put it "online".
-- A subscriber behaviour simulation component, ie code that simulates different 
-  customer behaviour: how often is the modem reset, poweroff, poweron, at what time 
-  schedules etc.
-- Feed back to graphite or similar to get performance graphs
-- Add implementation of DHCPv6 client so we can do experiments with IPv6
-- Configuration - some way of describing and executing different scenarios
-
 Example modem boot sequence
 ---------------------------
 <pre>
@@ -82,6 +83,22 @@ listening on eth2, link-type EN10MB (Ethernet), capture size 65535 bytes
 ^C
 15 packets captured
 </pre>
+
+
+
+Ideas boiling up:
+- Add handling of more than one DHCP server
+- Add minimal interpretation of the cable modem config file so the simulation can react
+  eg. on MTA enable/disable, og report some configured values like uplink/downlink speeds.
+- On-demand service: ReSTful web service interface to create a device on-demand and 
+  put it "online".
+- A subscriber behaviour simulation component, ie code that simulates different 
+  customer behaviour: how often is the modem reset, poweroff, poweron, at what time 
+  schedules etc.
+- Feed back to graphite or similar to get performance graphs
+- Add implementation of DHCPv6 client so we can do experiments with IPv6
+- Configuration - some way of describing and executing different scenarios
+
 
 Done so far:
 ------------
