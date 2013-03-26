@@ -69,13 +69,13 @@ handle_call(_X, _F, _S) ->
     error.
 
 handle_nextmac(Prefix = {A, B, C}, _From, State = #state{prefixdict=Prefixes}) ->
-    Prefixes2 =  case dict:find(Prefix, Prefixes) of
-                     {ok, Count} ->
-                         dict:store(Prefix, Count+1, Prefixes);
-                     _ ->
-                         Count = 0,
-                         dict:store(Prefix, 1, Prefixes)
-                 end,
+    {Prefixes2, Count} =  case dict:find(Prefix, Prefixes) of
+                              {ok, Countx} ->
+                                  {dict:store(Prefix, Countx+1, Prefixes), Countx};
+                              _ ->
+                                  Countx = 0,
+                                  {dict:store(Prefix, 1, Prefixes), Countx}
+                          end,
     State2 = State#state{prefixdict=Prefixes2},
     Mac = {A, B, C, Count div 256 div 256, Count div 256, Count rem 256},
     {reply, Mac, State2}.

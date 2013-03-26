@@ -9,6 +9,9 @@
 -include("debug.hrl").
 -include("device.hrl").
 
+%% Convenience api
+-export([start_all/0, stop_all/0]).
+
 %% Application callbacks
 -export([start/2, stop/1]).
 
@@ -34,6 +37,40 @@ start(_StartType, _StartArgs) ->
 
 stop(_State) ->
     ok.
+
+%%%===============================================================================
+%%%
+%%% Web service server startup code
+%%%
+%%%===============================================================================
+
+start_all() ->
+    ok = application:start(crypto),
+    ok = application:start(ranch),
+    ok = application:start(cowboy),
+    ok = application:start(cablesim),
+    % cowboy routes
+    Host = '_',
+    Port = 8799,
+    Dispatch = cowboy_router:compile(
+                 [{Host, [{"/cmts", cablesim_rest, []}]}]
+                ),
+    {ok, _} = cowboy:start_http(http, 100, [{port, Port}], [
+        {env, [{dispatch, Dispatch}]}
+    ]).
+
+stop_all() ->
+    application:stop(crypto),
+    application:stop(ranch),
+    application:stop(cowboy),
+    application:stop(cablesim).
+    
+
+%%%===========================================================================
+%%%
+%%% Simulation scenario setup code
+%%%
+%%%===========================================================================
 
 %% @doc
 %% create and start a cable modem based on templates for the components
