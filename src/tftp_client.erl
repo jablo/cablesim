@@ -17,6 +17,7 @@
 -module(tftp_client).
 -behaviour(gen_fsm).
 
+-include("debug.hrl").
 -include("device.hrl").
 -include("tftp.hrl").
 
@@ -48,7 +49,7 @@
 %% @spec start_link(N, Device) -> {ok, Pid} | ignore | {error, Error}
 %% @end
 start_link(N, Device) ->
-    gen_fsm:start_link({local, N}, tftp_client, [N, Device], [{debug,[]}]). %{debug,[trace]}
+    gen_fsm:start_link({local, N}, tftp_client, [N, Device], []). %{debug,[trace]}
 
 %% send a stop this will end up in "handle_event"
 stop(N)  -> gen_fsm:send_all_state_event(N, {stop}).
@@ -117,17 +118,7 @@ standby(_, State) ->
     {next_state, standby, State}.
 
 rrq_sent({packet, #tftp_data{port=Port, block=Block, data=Data}}, State) ->
-    OData = State#state.data,
-    NData = << OData/binary, Data/binary >>,
-    State2 = State#state{port = Port, lastack=Block, data = NData},
-    if size(Data) < ?C_BLKSIZ ->
-            io:format("File received ~p~n",[State#state.filename]),
-            io:format("Content: ~p~n", [docsisfile:parse(NData)]),
-            gen_udp:close(State#state.socket), % might have a client-Lingering-state here.
-            {next_state, standby, State};
-       size(Data) == ?C_BLKSIZ ->
-            send_ack(State2)
-    end;
+    receive_data(State, Port, Block, Data);
 rrq_sent(timeout, State) ->
     send_rrq(State);
 rrq_sent(_, State) ->
@@ -141,10 +132,8 @@ ack_sent({packet, #tftp_data{block=Block}}, State = #state{lastack=LastAck})
     send_ack(State);
 % the data block concatenation isn't really expensive; mostly cable modem config files
 % are 1 block long (300 bytes or so).
-ack_sent({packet, #tftp_data{block=Block, data=Data}}, State = #state{}) ->
-    OData = State#state.data,
-    State2 = State#state{lastack=Block, data = << OData/binary, Data/binary >>},
-    send_ack(State2);
+ack_sent({packet, #tftp_data{port=Port, block=Block, data=Data}}, State = #state{}) ->
+    receive_data(State, Port, Block, Data);
 ack_sent(timeout, State) ->    
     send_ack(State);
 ack_sent(_, State) ->
@@ -154,9 +143,23 @@ ack_sent(_, State) ->
 %%
 %% Internal transition states
 %%
-send_ack(State = #state{lastack=Ack, socket=S, server=IP, port=P}) ->
-    Pck = #tftp_ack{block=Ack},
-    gen_udp:send(S, IP, P, tftp_lib:encode(Pck)),
+receive_data(State, Port, Block, Data) ->
+    OData = State#state.data,
+    NData = << OData/binary, Data/binary >>,
+    % check if transfer is done
+    State2 = State#state{port = Port, lastack=Block, data = NData},
+    if size(Data) < ?C_BLKSIZ ->
+            ?debug("File received ~p~n",[State#state.filename]),
+%            ?debug("Content: ~p~n", [docsisfile:parse(NData)]),
+            do_send_ack(State),
+            gen_udp:close(State#state.socket), % might have a client-Lingering-state here.
+            {next_state, standby, State};            
+       size(Data) == ?C_BLKSIZ ->
+            send_ack(State2)
+    end.
+
+send_ack(State = #state{}) ->
+    do_send_ack(State),
     {next_state, ack_sent, State, ?ACK_TIMEOUT}.
 
 send_rrq(State = #state{socket=S, server=IP, port=P, filename=F}) ->
@@ -170,6 +173,13 @@ force_close(StateData = #state{socket = S}) ->
         _ -> gen_udp:close(S)
     end,
     {next_state, standby, StateData#state{socket=undefined}}.
+
+%%
+%% Helper. Do-send-ack
+%%
+do_send_ack(#state{lastack=Ack, socket=S, server=IP, port=P}) ->
+    Pck = #tftp_ack{block=Ack},
+    gen_udp:send(S, IP, P, tftp_lib:encode(Pck)).
 
 %%--------------------------------------------------------------------
 %% @private
@@ -221,6 +231,7 @@ handle_sync_event(_Event, _From, StateName, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_info({udp, _Socket, _IP, Port, Packet}, StateName, State) ->
+    ?debug("Received tftp packet from ~p~n", [_IP]),
     Tftp = tftp_lib:decode(Packet),
     if is_record(Tftp, tftp_data) ->
             receive_packet(self(), Tftp#tftp_data{port = Port});
@@ -229,6 +240,7 @@ handle_info({udp, _Socket, _IP, Port, Packet}, StateName, State) ->
     end,
     {next_state, StateName, State};
 handle_info(_Info, StateName, State) ->
+    ?debug("Handle info default action called... ~p~n",[_Info]),
     {next_state, StateName, State}.
 
 %%--------------------------------------------------------------------
