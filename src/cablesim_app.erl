@@ -28,7 +28,12 @@ start(_StartType, _StartArgs) ->
     error_logger:logfile({open, "/tmp/cablesim.log"}),
     {ok, Cmtses} = application:get_env(cablesim, cmtslist),
     io:format("Starting Cmtses: ~p~n", [Cmtses]),
-    {ok, Cms} = application:get_env(cablesim, cmlist),
+
+%    {ok, Cms} = application:get_env(cablesim, cmlist),
+% auto-generate a number of identical cable modems
+    {ok, CmCount} = application:get_env(cablesim, cmcount),
+    {ok, CmVendor} = application:get_env(cablesim, cmvendor),
+    Cms = mk_cm_tmpl(CmCount, CmVendor),
     io:format("Starting Cms: ~p~n", [Cms]),
     cablesim_sup:start_link(Cmtses, Cms),
     io:format("~nSupervisor started~n"),
@@ -71,6 +76,21 @@ stop_all() ->
 %%% Simulation scenario setup code
 %%%
 %%%===========================================================================
+
+%% Auto-generate a number of cable modems
+mk_cm_tmpl(Count, VMac) ->
+	mk_cm_tmpl(Count, VMac, []).
+mk_cm_tmpl(0, _, Acc) -> Acc;
+mk_cm_tmpl(Count, VMac, Acc) ->
+	CmID = mk_id(cm, Count),
+	Cm = {CmID, VMac, cg300_cm, no_mta, [cg3000_cpe], cmts},
+	mk_cm_tmpl(Count-1, VMac, [Cm|Acc]).
+
+% auto-generate cable modem id
+mk_id(Prefix, N) when is_integer(N) ->
+   list_to_atom(atom_to_list(Prefix) ++ integer_to_list(N)).
+
+	
 
 %% @doc
 %% create and start a cable modem based on templates for the components

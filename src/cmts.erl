@@ -92,7 +92,7 @@ stop(CMTS) ->
 %%                     {stop, Reason}
 %%--------------------------------------------------------------------
 init([ServerId, Intf, GiAddress, Netmask, DhcpHelpers]) ->
-    netconfig:network_config(Intf, GiAddress, Netmask),
+%    netconfig:network_config(Intf, GiAddress, Netmask),
     Options = get_sockopt(GiAddress),
     case gen_udp:open(?DHCP_RELAY_PORT, Options) of
 	{ok, Socket} ->

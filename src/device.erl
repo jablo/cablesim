@@ -171,7 +171,23 @@ mta_db(_) ->
     [H|_] = mta_db(),
     H.
 mta_db() ->
-    [#device_template
+    [
+	#device_template
+     {id = no_mta,
+      send_packet_fun = fun (D, P) -> ok
+                        end,
+      linkstate_fun = 
+          fun (_, _) -> ok
+          end,
+      vendor_class_id = 
+          "",
+      vendor_options_fun = 
+          fun (_) ->  []
+          end,
+      client_id_fun = fun (#device{mac={A,B,C,D,E,F}}) -> [16#ff,C,D,E,F,0,03,00,01,A,B,C,D,E,F] end,
+      parameter_request_list = []
+     },
+	#device_template
      {id = cg3000_mta,
       send_packet_fun = fun (D, P) -> 
                                 cm:relay_packet(D#device.upstream_id, P) 
