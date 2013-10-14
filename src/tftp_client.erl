@@ -151,7 +151,7 @@ receive_data(State, Port, Block, Data) ->
     if size(Data) < ?C_BLKSIZ ->
             ?debug("File received ~p~n",[State#state.filename]),
 %            ?debug("Content: ~p~n", [docsisfile:parse(NData)]),
-            do_send_ack(State),
+            do_send_ack(State2),
             gen_udp:close(State#state.socket), % might have a client-Lingering-state here.
             {next_state, standby, State};            
        size(Data) == ?C_BLKSIZ ->

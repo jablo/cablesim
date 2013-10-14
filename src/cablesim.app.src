@@ -25,7 +25,7 @@
 %           {cm3, {0,0,0}, cg300_cm, cg3000_mta, [cg3000_cpe], cmts},
 %           {cm4, {0,0,0}, cg300_cm, cg3000_mta, [cg3000_cpe, cg3000_cpe, cg3000_cpe], cmts}
           ]},
-	{cmcount, 1},
-	{cmvendor, {07,07,07}}
+	{cmcount, 10000},
+	{cmvendor, {07,07,09}}
  ]}
 ]}.
