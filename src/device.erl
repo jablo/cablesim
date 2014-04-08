@@ -94,10 +94,15 @@ start_cablemodem(Device, BehindDevs) ->
     % first build the children, they start in powered-off state
     % and won't do anything before their parent cable modem process
     % is brought online
+    io:format("start_cablemodem ~p - behinds: ~p~n", [Device, BehindDevs]),
     lists:foreach(fun (F_D) ->
-                          start_dhcp(F_D),
-                          start_tod(F_D),
-                          start_tftp(F_D)
+                          case  F_D of
+                              undefined -> ignore;
+                              _ ->
+                                  start_dhcp(F_D),
+                                  start_tod(F_D),
+                                  start_tftp(F_D)
+                          end
                   end,
                   [Device | BehindDevs]),
     start_cm(Device, BehindDevs).
@@ -130,6 +135,7 @@ mk_pname(Prefix, Postfix, N) ->
 %% @doc
 %% Cable modem template database.
 %% @end
+cm_db(undefined) -> undefined;
 cm_db(_) ->
     [H|_] = cm_db(),
     H.
@@ -167,6 +173,7 @@ cm_db() ->
 %% @doc
 %% Media terminal adapter (telephony device) template database.
 %% @end
+mta_db(undefined) -> undefined;
 mta_db(_) ->
     [H|_] = mta_db(),
     H.
@@ -201,6 +208,9 @@ mta_db() ->
 %% @doc
 %% PC / router template database.
 %% @end
+cpe_db(undefined) -> undefined;
+cpe_db({T,MV}) ->
+    {cpe_db(T), MV};
 cpe_db(_) ->
     [H|_] = cpe_db(),
     H.

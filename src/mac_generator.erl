@@ -36,9 +36,12 @@ start_link() ->
 
 %% @doc
 %% Calcalate a next mac address based on a mac vendor prefix. Repeated calls
-%% will generate a new unique mac address (based on an increasing counter)
+%% will generate a new unique mac address (based on an increasing counter).
+%% A fully specified mac address will just be returned unmodified.
 %% @end
-nextmac(Prefix) ->
+nextmac(M = {_,_,_,_,_,_}) ->
+    M;
+nextmac(Prefix = {_,_,_}) ->
     ?debug("mac_generator:nextmac(~p)~n", [Prefix]),
     gen_server:call(?MODULE, {nextmac, Prefix}).
 

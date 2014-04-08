@@ -31,7 +31,8 @@ start_link(Cmtses, Cms) ->
 %% Supervisor callbacks
 %% ===================================================================
 
-init([Cmtses|_]) ->
+init([Cmtses,Cms|_]) ->
+    io:format("cablesim_sup start Cms is ~p~n", [Cms]),
     RestartStrategy = {one_for_one, 10, 60},    
     CmtsChildren = lists:map(
                      fun ({Id, Intf, Ip, Netmask, DhcpHelpers}) ->

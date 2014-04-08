@@ -76,21 +76,45 @@ stop_all() ->
 %% create and start a cable modem based on templates for the components
 %% @end
 mk_cm(Cmts, CmId, MacVendor, CmTempl, MtaTempl, CpeTemplList) ->
+    io:format(">>>> CMTempl: ~p MtaTempl: ~p CpeTemplList: ~p~n", [CmTempl, MtaTempl, CpeTemplList]),
     CM = device:mk_device(CmId, Cmts, mac_generator:nextmac(MacVendor), CmTempl),
-    MTA = device:mk_device(
-            device:mk_pname(cm, mta), CM#device.server_id,
-            mac_generator:nextmac(MacVendor), MtaTempl),
+    MTA = case MtaTempl of
+              undefined -> undefined;
+              { TheMtaTempl, MtaMacVendor } ->
+                  device:mk_device(
+                    device:mk_pname(CmId, mta), CM#device.server_id,
+                    mac_generator:nextmac(MtaMacVendor), TheMtaTempl);
+              _ ->
+                  device:mk_device(
+                    device:mk_pname(CmId, mta), CM#device.server_id,
+                    mac_generator:nextmac(MacVendor), MtaTempl)
+          end,
     CPEList = lists:map(fun ({T,N}) ->
-                                device:mk_device(
-                                  device:mk_pname(cm, cpe, N), CM#device.server_id,
-                                  mac_generator:nextmac(MacVendor), T)
+                                case T of
+                                    undefined -> undefined;
+                                    { TheCpeTempl, CpeMacVendor } ->
+                                        device:mk_device(
+                                          device:mk_pname(CmId, cpe, N), CM#device.server_id,
+                                          mac_generator:nextmac(CpeMacVendor), TheCpeTempl);
+                                    _ ->
+                                        device:mk_device(
+                                          device:mk_pname(CmId, cpe, N), CM#device.server_id,
+                                          mac_generator:nextmac(MacVendor), T)
+                                end
                         end,
                         lists:zip(CpeTemplList, lists:seq(1,length(CpeTemplList)))),
-    device:start_cablemodem(CM, [MTA| CPEList]),
+%    io:format(">>>> CM: ~p MTA: ~p CPEs: ~p~n", [CM, MTA, CPEList]),
+    BehindList = lists:filter(fun (E) -> 
+                                      case E of
+                                          undefined -> false;
+                                          _ -> true
+                                      end
+                              end, [MTA | CPEList]),
+    device:start_cablemodem(CM, BehindList),
     cm:poweron(CmId).
 
 %% @doc
-%% Start a simulation of a number of CG300 cable modems with
+%% Start a simulation of a number of CG3000 cable modems with
 %% built in MTA and CPE
 %% @spec simulate(N) -> ok
 %% @end
@@ -99,6 +123,8 @@ simulate([]) -> ok;
 simulate([{CmId, MacVendor, CmTmplName, MtaTmplName, CpeTmplNameList, Cmts} |T]) ->
     CmTmpl = device:cm_db(CmTmplName),
     MtaTmpl = device:mta_db(MtaTmplName),
+    io:format("simulate: CpeTmplNameList ~p~n", [CpeTmplNameList]),
     CpeTmplList = lists:map(fun (X) -> device:cpe_db(X) end, CpeTmplNameList),
     mk_cm(Cmts, CmId, MacVendor, CmTmpl, MtaTmpl, CpeTmplList),
     simulate(T).
+

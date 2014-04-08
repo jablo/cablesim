@@ -16,11 +16,46 @@
   {mod, { cablesim_app, []}},
   {env, [{cmtslist, 
           [
-           {cmts, "eth2:1", {192,168,56,103}, {255,255,255,0}, [{192,168,56,105}, {192,168,56,106}]},
-           {cmts1, "eth2:2", {192,168,56,104}, {255,255,255,0}, [{192,168,56,105}, {192,168,56,106}]}
+           {cmts, "eth0", {62,135,141,70}, {255,255,255,224}, [{62,135,141,71},{62,135,141,72}]}
+%           {cmts, "eth2:1", {192,168,56,103}, {255,255,255,0}, [{192,168,56,105}, {192,168,56,106}]},
+%           {cmts1, "eth2:2", {192,168,56,104}, {255,255,255,0}, [{192,168,56,105}, {192,168,56,106}]}
           ]},
          {cmlist,
-          [{cm, {0,0,0}, cg300_cm, cg3000_mta, [cg3000_cpe], cmts}
+          [
+           % For Ricardo lock-problem tests
+           {cm01, {0,0,1}, cg3000_cm, cg3000_mta, [cg3000_cpe], cmts},
+           {cm02, {0,0,1}, cg3000_cm, cg3000_mta, [cg3000_cpe], cmts},
+           {cm03, {0,0,1}, cg3000_cm, cg3000_mta, [cg3000_cpe], cmts},
+           {cm04, {0,0,1}, cg3000_cm, cg3000_mta, [cg3000_cpe], cmts},
+           {cm05, {0,0,1}, cg3000_cm, cg3000_mta, [cg3000_cpe], cmts},
+           {cm06, {0,0,1}, cg3000_cm, cg3000_mta, [cg3000_cpe], cmts},
+           {cm07, {0,0,1}, cg3000_cm, cg3000_mta, [cg3000_cpe], cmts},
+           {cm08, {0,0,1}, cg3000_cm, cg3000_mta, [cg3000_cpe], cmts},
+           {cm09, {0,0,1}, cg3000_cm, cg3000_mta, [cg3000_cpe], cmts},
+           {cm10, {0,0,1}, cg3000_cm, cg3000_mta, [cg3000_cpe], cmts},
+           {cm11, {0,0,1}, cg3000_cm, cg3000_mta, [cg3000_cpe], cmts},
+           {cm12, {0,0,1}, cg3000_cm, cg3000_mta, [cg3000_cpe], cmts},
+           {cm13, {0,0,1}, cg3000_cm, cg3000_mta, [cg3000_cpe], cmts},
+           {cm14, {0,0,1}, cg3000_cm, cg3000_mta, [cg3000_cpe], cmts},
+           {cm15, {0,0,1}, cg3000_cm, cg3000_mta, [cg3000_cpe], cmts},
+           {cm16, {0,0,1}, cg3000_cm, cg3000_mta, [cg3000_cpe], cmts},
+           {cm17, {0,0,1}, cg3000_cm, cg3000_mta, [cg3000_cpe], cmts},
+           {cm18, {0,0,1}, cg3000_cm, cg3000_mta, [cg3000_cpe], cmts},
+           {cm19, {0,0,1}, cg3000_cm, cg3000_mta, [cg3000_cpe], cmts},
+           {cm20, {0,0,1}, cg3000_cm, cg3000_mta, [cg3000_cpe], cmts},
+
+           % For Jacob's ftth tests - port 1,2,3,4,5,6,7,8,9,10 module 0, switch mac
+           {cm21, {16#03, 16#04, 16#6A, 16#3C, 16#E3, 16#00}, cg3000_cm, undefined, [{cg3000_cpe,{0,0,2}}], cmts},
+           {cm22, {16#05, 16#04, 16#6A, 16#3C, 16#E3, 16#00}, cg3000_cm, undefined, [{cg3000_cpe,{0,0,2}}], cmts},
+           {cm23, {16#07, 16#04, 16#6A, 16#3C, 16#E3, 16#00}, cg3000_cm, undefined, [{cg3000_cpe,{0,0,2}}], cmts},
+           {cm24, {16#09, 16#04, 16#6A, 16#3C, 16#E3, 16#00}, cg3000_cm, undefined, [{cg3000_cpe,{0,0,2}}], cmts}
+%           {cm25, {16#0b, 16#04, 16#6A, 16#3C, 16#E3, 16#00}, cg3000_cm, undefined, [{cg3000_cpe,{0,0,2}}], cmts},
+%           {cm26, {16#0d, 16#04, 16#6A, 16#3C, 16#E3, 16#00}, cg3000_cm, undefined, [{cg3000_cpe,{0,0,2}}], cmts},
+%           {cm27, {16#0f, 16#04, 16#6A, 16#3C, 16#E3, 16#00}, cg3000_cm, undefined, [{cg3000_cpe,{0,0,2}}], cmts},
+%           {cm28, {16#11, 16#04, 16#6A, 16#3C, 16#E3, 16#00}, cg3000_cm, undefined, [{cg3000_cpe,{0,0,2}}], cmts},
+%           {cm29, {16#13, 16#04, 16#6A, 16#3C, 16#E3, 16#00}, cg3000_cm, undefined, [{cg3000_cpe,{0,0,2}}], cmts},
+%           {cm30, {16#15, 16#04, 16#6A, 16#3C, 16#E3, 16#00}, cg3000_cm, undefined, [{cg3000_cpe,{0,0,2}}], cmts}
+
 %           {cm2, {0,0,0}, cg300_cm, cg3000_mta, [cg3000_cpe], cmts},
 %           {cm3, {0,0,0}, cg300_cm, cg3000_mta, [cg3000_cpe], cmts},
 %           {cm4, {0,0,0}, cg300_cm, cg3000_mta, [cg3000_cpe, cg3000_cpe, cg3000_cpe], cmts}
